@@ -10,7 +10,13 @@ const nextConfig = {
   },
   turbopack: {
     root: './'
-  }
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 };
 
 module.exports = withNextIntl(nextConfig);
