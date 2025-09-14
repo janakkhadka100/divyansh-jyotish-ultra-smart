@@ -95,8 +95,16 @@ class AdvancedCacheService {
 
   private async initializeClient() {
     try {
+      // Skip Redis connection in demo mode
+      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      if (redisUrl.includes('localhost') && process.env.NODE_ENV === 'production') {
+        console.warn('Skipping Redis connection in production demo mode');
+        this.isConnected = false;
+        return;
+      }
+
       this.client = createClient({
-        url: process.env.REDIS_URL || 'redis://localhost:6379',
+        url: redisUrl,
         socket: {
           connectTimeout: 5000,
           lazyConnect: true,
