@@ -194,10 +194,11 @@ class ProkeralaService {
   private lastRequestTime: number = 0;
 
   constructor() {
-    this.apiKey = process.env.PROKERALA_API_KEY || '';
+    this.apiKey = process.env.PROKERALA_API_KEY || 'demo-key';
     
-    if (!this.apiKey) {
-      throw new Error('PROKERALA_API_KEY environment variable is required');
+    // Allow demo mode without API key
+    if (!this.apiKey || this.apiKey === 'demo-key') {
+      console.warn('Running in demo mode - PROKERALA_API_KEY not provided');
     }
 
     this.client = axios.create({
