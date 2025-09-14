@@ -61,6 +61,12 @@ const config: Config = {
           dark: "#2C1810",         // Dark brown
           light: "#F5F5DC",        // Beige
         },
+        // Additional gray colors for compatibility
+        gray: {
+          200: "#E5E7EB",
+          700: "#374151",
+          800: "#1F2937",
+        },
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

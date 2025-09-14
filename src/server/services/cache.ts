@@ -294,3 +294,6 @@ export async function warmCache<T>(
 }
 
 export default CacheService;
+
+// Export cacheService for backward compatibility
+export const cacheService = caches.general;

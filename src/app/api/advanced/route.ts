@@ -117,6 +117,15 @@ const MonitoringRequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check required environment variables
+    if (!process.env.PROKERALA_API_KEY) {
+      return NextResponse.json({
+        success: false,
+        error: 'Configuration error',
+        message: 'PROKERALA_API_KEY environment variable is required',
+      }, { status: 500 });
+    }
+
     const body = await request.json();
     const { service, action, ...data } = body;
 
