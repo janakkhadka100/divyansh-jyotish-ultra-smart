@@ -119,6 +119,15 @@ export async function PATCH(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Skip offline geocoding in production demo mode
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({
+        success: false,
+        error: 'Service unavailable',
+        message: 'Offline geocoding not available in demo mode',
+      }, { status: 503 });
+    }
+
     const { searchParams } = new URL(request.url);
     const country = searchParams.get('country');
     const action = searchParams.get('action');
