@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User's birth details for astrology
+  birthDate    DateTime?
+  birthTime    String?   // HH:MM format
+  birthPlace   String?
+  latitude     Float?
+  longitude    Float?
+  timezone     String?
+
+  // Generated charts and readings
+  charts       Chart[]
+  readings     Reading[]
+  chatSessions ChatSession[]
+
+  @@map("users")
+}
+
+model Chart {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  chartType String   // "natal", "transit", "dasha", etc.
+  chartData Json     // Store chart calculations as JSON
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("charts")
+}
+
+model Reading {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   // "general", "career", "love", "health", etc.
+  content   String   // The reading text
+  language  String   @default("ne") // ne, hi, en
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("readings")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String?
+  messages  ChatMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String       @id @default(cuid())
+  sessionId String
+  session   ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  role      String       // "user" or "assistant"
+  content   String
+  timestamp DateTime     @default(now())
+
+  @@map("chat_messages")
+}

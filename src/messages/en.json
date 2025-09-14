@@ -1,0 +1,34 @@
+{
+  "common": {
+    "name": "Name",
+    "email": "Email",
+    "birthDate": "Birth Date",
+    "birthTime": "Birth Time",
+    "birthPlace": "Birth Place",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "landing": {
+    "title": "Divyansh Jyotish",
+    "subtitle": "Discover your destiny and life's mysteries",
+    "description": "Learn about your birth chart, dasha periods, and predictions with the help of ancient Vedic astrology.",
+    "formTitle": "Enter your birth details",
+    "getReading": "Get Astrological Reading"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "myCharts": "My Charts",
+    "recentReadings": "Recent Readings",
+    "chatWithAstrologer": "Chat with Astrologer"
+  },
+  "chat": {
+    "title": "Astrology Chat",
+    "placeholder": "Type your question...",
+    "send": "Send",
+    "newChat": "New Chat"
+  }
+}
