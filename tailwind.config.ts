@@ -50,22 +50,34 @@ const config: Config = {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
-        // Vedic colors
+        // Vedic color palette
         vedic: {
-          red: "#DC2626", // Saffron red
-          blue: "#1E40AF", // Deep blue
-          gold: "#F59E0B", // Gold
-          white: "#F8FAFC", // Pure white
+          primary: "#C41E3A",      // Sacred red
+          secondary: "#1E3A8A",    // Deep blue
+          gold: "#D4AF37",         // Sacred gold
+          saffron: "#FF9933",      // Saffron
+          maroon: "#800000",       // Deep maroon
+          cream: "#FFF8DC",        // Cream
+          dark: "#2C1810",         // Dark brown
+          light: "#F5F5DC",        // Beige
         },
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
         devanagari: ["var(--font-noto-sans-devanagari)", "system-ui", "sans-serif"],
+        vedic: ["var(--font-noto-sans-devanagari)", "var(--font-inter)", "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        "2xl": "1rem",
+        "3xl": "1.5rem",
+      },
+      boxShadow: {
+        'vedic': '0 4px 6px -1px rgba(196, 30, 58, 0.1), 0 2px 4px -1px rgba(196, 30, 58, 0.06)',
+        'vedic-lg': '0 10px 15px -3px rgba(196, 30, 58, 0.1), 0 4px 6px -2px rgba(196, 30, 58, 0.05)',
+        'gold': '0 4px 6px -1px rgba(212, 175, 55, 0.1), 0 2px 4px -1px rgba(212, 175, 55, 0.06)',
       },
       keyframes: {
         "accordion-down": {

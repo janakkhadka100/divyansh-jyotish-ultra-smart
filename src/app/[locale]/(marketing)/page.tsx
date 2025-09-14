@@ -1,11 +1,47 @@
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Calendar, Clock, MapPin, User } from 'lucide-react';
+import EnhancedBirthDetailsForm from '@/components/forms/EnhancedBirthDetailsForm';
+import { useState } from 'react';
 
 export default function LandingPage() {
   const t = useTranslations();
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleFormSubmit = async (data: any) => {
+    setIsGenerating(true);
+    
+    try {
+      // Generate birth chart using Prokerala API
+      const response = await fetch('/api/astrology/birth-chart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude: data.coordinates.latitude,
+          longitude: data.coordinates.longitude,
+          datetime: `${data.birthDate}T${data.birthTime}:00`,
+          timezone: data.coordinates.timezone,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Redirect to dashboard with chart data
+        // For now, just show success message
+        alert('जन्मकुण्डली सफलतापूर्वक बन्यो!');
+      } else {
+        alert('त्रुटि: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error generating birth chart:', error);
+      alert('जन्मकुण्डली बनाउनमा त्रुटि भयो।');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -45,70 +81,9 @@ export default function LandingPage() {
 
         {/* Birth Details Form */}
         <div className="max-w-2xl mx-auto">
-          <Card className="vedic-card">
-            <CardHeader>
-              <CardTitle className="text-2xl text-vedic-red text-center devanagari">
-                {t('landing.formTitle')}
-              </CardTitle>
-              <CardDescription className="text-center text-vedic-white/80 devanagari">
-                सही जन्म विवरण दिनुहोस् र आफ्नो ज्योतिष पढाइ पाउनुहोस्
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <form className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    {t('common.name')}
-                  </label>
-                  <Input 
-                    placeholder="आफ्नो नाम लेख्नुहोस्" 
-                    className="vedic-input devanagari"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {t('common.birthDate')}
-                  </label>
-                  <Input 
-                    type="date" 
-                    className="vedic-input"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {t('common.birthTime')}
-                  </label>
-                  <Input 
-                    type="time" 
-                    className="vedic-input"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {t('common.birthPlace')}
-                  </label>
-                  <Input 
-                    placeholder="जन्म स्थान (शहर, देश)" 
-                    className="vedic-input devanagari"
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full vedic-button text-lg py-3"
-                >
-                  {t('landing.getReading')}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+        <EnhancedBirthDetailsForm 
+          locale={params.locale as 'ne' | 'hi' | 'en'}
+        />
         </div>
 
         {/* Features Section */}

@@ -4,8 +4,12 @@ const withNextIntl = require('next-intl/plugin')(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['@prisma/client'],
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client']
+  },
+  turbopack: {
+    root: './'
   }
 };
 

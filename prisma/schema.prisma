@@ -12,78 +12,126 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  name      String
-  email     String?  @unique
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // User's birth details for astrology
-  birthDate    DateTime?
-  birthTime    String?   // HH:MM format
-  birthPlace   String?
-  latitude     Float?
-  longitude    Float?
-  timezone     String?
-
-  // Generated charts and readings
-  charts       Chart[]
-  readings     Reading[]
-  chatSessions ChatSession[]
+  name      String?
+  locale    String   @default("ne")
+  sessions  Session[]
 
   @@map("users")
 }
 
-model Chart {
+model Session {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  chartType String   // "natal", "transit", "dasha", etc.
-  chartData Json     // Store chart calculations as JSON
-  
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  birth     BirthInput?
+  result    HoroscopeResult?
+  chats     ChatMessage[]
 
-  @@map("charts")
+  @@map("sessions")
 }
 
-model Reading {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type      String   // "general", "career", "love", "health", etc.
-  content   String   // The reading text
-  language  String   @default("ne") // ne, hi, en
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model BirthInput {
+  id              String   @id @default(cuid())
+  session         Session  @relation(fields: [sessionId], references: [id])
+  sessionId       String   @unique
+  name            String?
+  date            DateTime // UTC date-time computed from local + tz
+  rawDate         String   // user's local date string
+  rawTime         String   // user's local time string
+  location        String
+  lat             Float
+  lon             Float
+  tzId            String   // Olson TZ
+  tzOffsetMinutes Int
 
-  @@map("readings")
+  @@map("birth_inputs")
 }
 
-model ChatSession {
+model HoroscopeResult {
   id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  title     String?
-  messages  ChatMessage[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  session   Session  @relation(fields: [sessionId], references: [id])
+  sessionId String   @unique
+  provider  String   // "prokerala"
+  payload   Json     // whole response (kundli, varga charts, dasha trees, yogini etc.)
+  summary   Json     // distilled fields for UI
 
-  @@map("chat_sessions")
+  @@map("horoscope_results")
 }
 
 model ChatMessage {
-  id        String       @id @default(cuid())
+  id        String   @id @default(cuid())
+  session   Session  @relation(fields: [sessionId], references: [id])
   sessionId String
-  session   ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  role      String       // "user" or "assistant"
+  role      String   // "user" | "assistant" | "system"
   content   String
-  timestamp DateTime     @default(now())
+  createdAt DateTime @default(now())
+  lang      String   @default("ne")
 
   @@map("chat_messages")
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  type      String   // "api_call" | "user_action" | "error" | "performance" | "business"
+  category  String
+  action    String
+  userId    String?
+  sessionId String?
+  metadata  Json
+  timestamp DateTime @default(now())
+  duration  Int?
+  success   Boolean
+  ipAddress String?
+  userAgent String?
+  location  Json?
+
+  @@map("analytics_events")
+}
+
+model UserSession {
+  id          String    @id @default(cuid())
+  userId      String
+  deviceId    String
+  ipAddress   String
+  userAgent   String
+  location    String?   // JSON string
+  permissions String?   // JSON string
+  metadata    String?   // JSON string
+  createdAt   DateTime  @default(now())
+  lastActivity DateTime @default(now())
+  expiresAt   DateTime
+  isActive    Boolean   @default(true)
+
+  @@map("user_sessions")
+}
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  type        String   // "login" | "logout" | "failed_login" | "suspicious_activity" | "rate_limit" | "data_access" | "permission_denied"
+  severity    String   // "low" | "medium" | "high" | "critical"
+  userId      String?
+  sessionId   String?
+  ipAddress   String
+  userAgent   String
+  description String
+  metadata    String   // JSON string
+  timestamp   DateTime @default(now())
+  resolved    Boolean  @default(false)
+
+  @@map("security_events")
+}
+
+model CacheEntry {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  data      String   // JSON string
+  timestamp DateTime @default(now())
+  ttl       Int      // TTL in milliseconds
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([timestamp])
 }

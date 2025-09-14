@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Share, Star } from 'lucide-react';
 
 interface DashboardDetailPageProps {
-  params: {
+  params: Promise<{
     id: string;
     locale: string;
-  };
+  }>;
 }
 
-export default function DashboardDetailPage({ params }: DashboardDetailPageProps) {
+export default async function DashboardDetailPage({ params }: DashboardDetailPageProps) {
+  const { id, locale } = await params;
   const t = useTranslations();
 
   return (
@@ -24,7 +25,7 @@ export default function DashboardDetailPage({ params }: DashboardDetailPageProps
               फिर्ता
             </Button>
             <div className="text-2xl font-bold text-vedic-gold devanagari">
-              ज्योतिष विवरण - #{params.id}
+              ज्योतिष विवरण - #{id}
             </div>
           </div>
           <div className="flex space-x-2">
