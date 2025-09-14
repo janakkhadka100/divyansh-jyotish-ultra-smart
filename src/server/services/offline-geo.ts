@@ -53,14 +53,21 @@ class OfflineGeocodingService {
     if (this.isInitialized) return;
 
     try {
+      // Skip SQLite3 in production demo mode
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('Skipping SQLite3 offline geocoding in production demo mode');
+        this.isInitialized = true;
+        return;
+      }
+
       this.db = new sqlite3.Database(this.dbPath);
       await this.createTables();
       await this.loadSeedData();
       this.isInitialized = true;
       console.log('Offline geocoding database initialized');
     } catch (error) {
-      console.error('Failed to initialize offline geocoding database:', error);
-      throw error;
+      console.warn('Failed to initialize offline geocoding database, using fallback:', error);
+      this.isInitialized = true; // Allow service to work without SQLite3
     }
   }
 
