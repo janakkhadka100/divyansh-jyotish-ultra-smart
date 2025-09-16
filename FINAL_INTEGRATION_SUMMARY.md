@@ -178,3 +178,4 @@ Your Divyansh Jyotish application now successfully integrates ProKerala Jyotish 
 ---
 
 *Developed with ❤️ for the Nepali astrological community*
+

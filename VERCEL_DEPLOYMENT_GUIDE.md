@@ -232,3 +232,4 @@ vercel postgres create divyansh-jyotish-db
 **🎉 तपाईंको Divyansh Jyotish application अब Vercel मा deploy गर्नका लागि तयार छ!**
 
 **Next Step**: Vercel CLI use गरेर deploy गर्नुहोस् वा Vercel dashboard मा जानुहोस्।
+
