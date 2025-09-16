@@ -196,7 +196,7 @@ class ProkeralaService {
   constructor() {
     this.apiKey = process.env.PROKERALA_API_KEY || 'demo-key';
     
-    // Allow demo mode without API key
+    // Allow demo mode for build time
     if (!this.apiKey || this.apiKey === 'demo-key') {
       console.warn('Running in demo mode - PROKERALA_API_KEY not provided');
     }

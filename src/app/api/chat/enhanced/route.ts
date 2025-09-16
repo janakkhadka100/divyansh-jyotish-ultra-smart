@@ -1,0 +1,279 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import OpenAI from 'openai';
+import { prisma } from '@/server/lib/prisma';
+import { ProkeralaEnhancedService } from '@/server/services/prokerala-enhanced';
+
+// Input validation schema
+const ChatSchema = z.object({
+  message: z.string().min(1).max(1000),
+  userId: z.string().optional(),
+  token: z.string().optional(),
+  birthData: z.object({
+    name: z.string().optional(),
+    date: z.string(),
+    time: z.string(),
+    location: z.string(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    timezone: z.string().optional(),
+    ayanamsa: z.number().default(1)
+  }).optional()
+});
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Initialize ProKerala service
+const prokeralaService = new ProkeralaEnhancedService();
+
+// Detect question type for better responses
+function detectQuestionType(message: string): string {
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('करियर') || lowerMessage.includes('काम') || lowerMessage.includes('पेशा')) {
+    return 'career';
+  } else if (lowerMessage.includes('प्रेम') || lowerMessage.includes('विवाह') || lowerMessage.includes('जीवनसाथी')) {
+    return 'love';
+  } else if (lowerMessage.includes('स्वास्थ्य') || lowerMessage.includes('रोग') || lowerMessage.includes('बिरामी')) {
+    return 'health';
+  } else if (lowerMessage.includes('धन') || lowerMessage.includes('पैसा') || lowerMessage.includes('आर्थिक')) {
+    return 'finance';
+  } else if (lowerMessage.includes('शिक्षा') || lowerMessage.includes('पढाई') || lowerMessage.includes('विद्यालय')) {
+    return 'education';
+  } else if (lowerMessage.includes('दशा') || lowerMessage.includes('महादशा') || lowerMessage.includes('अन्तर्दशा')) {
+    return 'dasha';
+  } else if (lowerMessage.includes('कुण्डली') || lowerMessage.includes('जन्मकुण्डली') || lowerMessage.includes('राशि')) {
+    return 'kundli';
+  } else if (lowerMessage.includes('आज') || lowerMessage.includes('आजको') || lowerMessage.includes('शुभ')) {
+    return 'daily';
+  } else {
+    return 'general';
+  }
+}
+
+// Get contextual response based on question type
+function getContextualResponse(message: string, questionType: string, astrologicalData?: any): string {
+  const responses = {
+    career: "तपाईंको करियर सम्बन्धी प्रश्नको लागि, म तपाईंको जन्मकुण्डली, दशा, र ग्रहहरूको स्थिति हेरेर उत्तर दिनेछु।",
+    love: "प्रेम र विवाह सम्बन्धी प्रश्नको लागि, म तपाईंको सप्तम भाव, शुक्र, र चन्द्रको स्थिति हेरेर विश्लेषण गर्नेछु।",
+    health: "स्वास्थ्य सम्बन्धी प्रश्नको लागि, म तपाईंको षष्ठ भाव, मंगल, र अन्य स्वास्थ्य सम्बन्धी ग्रहहरूको स्थिति हेरेर जवाफ दिनेछु।",
+    finance: "धन र आर्थिक स्थिति सम्बन्धी प्रश्नको लागि, म तपाईंको द्वितीय भाव, पञ्चम भाव, र गुरुको स्थिति हेरेर विश्लेषण गर्नेछु।",
+    education: "शिक्षा र ज्ञान सम्बन्धी प्रश्नको लागि, म तपाईंको पञ्चम भाव, बुध, र गुरुको स्थिति हेरेर उत्तर दिनेछु।",
+    dasha: "दशा सम्बन्धी प्रश्नको लागि, म तपाईंको वर्तमान दशा, अन्तर्दशा, र प्रत्यन्तर्दशा हेरेर विस्तृत विश्लेषण गर्नेछु।",
+    kundli: "कुण्डली सम्बन्धी प्रश्नको लागि, म तपाईंको सम्पूर्ण जन्मकुण्डली, ग्रहहरूको स्थिति, र योगहरू हेरेर जवाफ दिनेछु।",
+    daily: "आजको शुभ समय र दिनचर्या सम्बन्धी प्रश्नको लागि, म तपाईंको पञ्चाङ्ग, तिथि, र ग्रहहरूको स्थिति हेरेर सुझाव दिनेछु।",
+    general: "सामान्य ज्योतिष सम्बन्धी प्रश्नको लागि, म तपाईंको जन्मकुण्डली र वर्तमान दशा हेरेर उत्तर दिनेछु।"
+  };
+  
+  return responses[questionType as keyof typeof responses] || responses.general;
+}
+
+// Enhanced ChatGPT API call with real astrological data
+async function callChatGPTWithAstrology(message: string, birthData?: any, astrologicalData?: any) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  // Detect question type
+  const questionType = detectQuestionType(message);
+  const contextualResponse = getContextualResponse(message, questionType, astrologicalData);
+
+  // Build comprehensive system prompt
+  let systemPrompt = `तपाईं दिव्यांश ज्योतिषका विशेषज्ञ हुनुहुन्छ। तपाईंले वैदिक ज्योतिषका सिद्धान्तहरू प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको उत्तर दिनुपर्छ। नेपाली भाषामा उत्तर दिनुहोस्।`;
+
+  if (astrologicalData) {
+    systemPrompt += `
+
+**प्रयोगकर्ताको ज्योतिषीय डाटा:**
+
+**जन्म विवरण:**
+- नाम: ${birthData?.name || 'अज्ञात'}
+- जन्म मिति: ${birthData?.date || 'अज्ञात'}
+- जन्म समय: ${birthData?.time || 'अज्ञात'}
+- जन्म स्थान: ${birthData?.location || 'अज्ञात'}
+
+**कुण्डली डाटा:**
+- लग्न: ${astrologicalData.kundli?.ascendant?.sign || 'अज्ञात'} (${astrologicalData.kundli?.ascendant?.degree || 0}°)
+- चन्द्र राशि: ${astrologicalData.kundli?.moonSign?.sign || 'अज्ञात'} (${astrologicalData.kundli?.moonSign?.degree || 0}°)
+- सूर्य राशि: ${astrologicalData.kundli?.sunSign?.sign || 'अज्ञात'} (${astrologicalData.kundli?.sunSign?.degree || 0}°)
+
+**ग्रहहरूको स्थिति:**
+${astrologicalData.kundli?.planets?.map((planet: any) => 
+  `- ${planet.name}: ${planet.sign} (${planet.degree}°) - ${planet.house} भाव`
+).join('\n') || 'अज्ञात'}
+
+**योगहरू:**
+${astrologicalData.kundli?.yogas?.map((yoga: any) => 
+  `- ${yoga.yogaName}: ${yoga.yogaType} (${yoga.strength})`
+).join('\n') || 'अज्ञात'}
+
+**दशा डाटा:**
+- वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'अज्ञात'}
+- अन्तर्दशा: ${astrologicalData.dasha?.antardasha || 'अज्ञात'}
+- प्रत्यन्तर्दशा: ${astrologicalData.dasha?.pratyantardasha || 'अज्ञात'}
+
+**पञ्चाङ्ग डाटा:**
+- तिथि: ${astrologicalData.panchang?.tithi || 'अज्ञात'}
+- नक्षत्र: ${astrologicalData.panchang?.nakshatra || 'अज्ञात'}
+- योग: ${astrologicalData.panchang?.yoga || 'अज्ञात'}
+- करण: ${astrologicalData.panchang?.karana || 'अज्ञात'}
+
+तपाईंले यो विस्तृत ज्योतिषीय डाटा प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको सटीक उत्तर दिनुपर्छ। केवल उपलब्ध डाटाको आधारमा मात्र जवाफ दिनुहोस्, आफैँ बनावटी कुरा नगर्नुहोस्।`;
+  } else if (birthData) {
+    systemPrompt += `
+
+**प्रयोगकर्ताको जन्म विवरण:**
+- नाम: ${birthData.name || 'अज्ञात'}
+- जन्म मिति: ${birthData.date}
+- जन्म समय: ${birthData.time}
+- जन्म स्थान: ${birthData.location}
+
+यो जन्म विवरणको आधारमा ज्योतिषीय विश्लेषण गर्नुहोस्। यदि अधिक सटीक विश्लेषण चाहिएको छ भने, निम्न जानकारी पनि माग्नुहोस्:
+- सही जन्म समय
+- सही जन्म स्थान
+- नाम`;
+  } else {
+    systemPrompt += `
+
+यदि तपाईंलाई जन्म विवरण चाहिएको छ भने, निम्न जानकारी माग्नुहोस्:
+- जन्म मिति (YYYY-MM-DD)
+- जन्म समय (HH:MM)
+- जन्म स्थान
+- नाम
+
+तपाईंको उत्तरहरू सरल, स्पष्ट र ज्योतिषीय रूपमा सही हुनुपर्छ।`;
+  }
+
+  systemPrompt += `
+
+**प्रयोगकर्ताको प्रश्न:** ${message}
+**प्रश्नको प्रकार:** ${questionType}
+**सन्दर्भगत उत्तर:** ${contextualResponse}
+
+तपाईंले यो प्रश्नको उत्तर दिनुहोस्।`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-4',
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: message,
+        },
+      ],
+      max_tokens: 1000,
+      temperature: 0.7,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
+    });
+
+    return {
+      message: response.choices[0]?.message?.content || 'माफ गर्नुहोस्, मैले उत्तर दिन सकिन।',
+      timestamp: new Date().toISOString(),
+      type: 'ai',
+      questionType,
+      contextualResponse
+    };
+  } catch (error) {
+    console.error('OpenAI API error:', error);
+    
+    // Fallback response if API fails
+    return {
+      message: 'माफ गर्नुहोस्, अहिले AI सेवा उपलब्ध छैन। कृपया केही समय पछि फेरि प्रयास गर्नुहोस्।',
+      timestamp: new Date().toISOString(),
+      type: 'ai',
+      questionType,
+      contextualResponse: 'सेवा अस्थायी रूपमा उपलब्ध छैन।'
+    };
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { message, userId, token, birthData } = ChatSchema.parse(body);
+
+    console.log(`Enhanced chat request: ${message}`);
+
+    let astrologicalData = null;
+
+    // If birth data is provided, get astrological data
+    if (birthData) {
+      try {
+        console.log('Fetching astrological data...');
+        astrologicalData = await prokeralaService.getAstrologicalData(birthData);
+        console.log('Astrological data fetched successfully');
+      } catch (error) {
+        console.error('Error fetching astrological data:', error);
+        // Continue without astrological data
+      }
+    }
+
+    // Call ChatGPT with astrological data
+    const aiResponse = await callChatGPTWithAstrology(message, birthData, astrologicalData);
+
+    // Store chat message in database
+    let chatMessage;
+    try {
+      // Create a temporary user if userId is not provided
+      let actualUserId = userId;
+      if (!actualUserId) {
+        const tempUser = await prisma.user.upsert({
+          where: { email: 'anonymous@demo.com' },
+          update: {},
+          create: {
+            name: 'Anonymous User',
+            email: 'anonymous@demo.com',
+            password: 'demo-password',
+            birthData: {}
+          }
+        });
+        actualUserId = tempUser.id;
+      }
+
+      chatMessage = await prisma.chatMessage.create({
+        data: {
+          userId: actualUserId,
+          message,
+          response: aiResponse.message,
+        }
+      });
+    } catch (dbError) {
+      console.log('Database not available, creating demo chat message');
+      chatMessage = {
+        id: Date.now().toString(),
+        message,
+        response: aiResponse.message,
+        timestamp: new Date(),
+      };
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: chatMessage.id,
+        message: chatMessage.message,
+        response: chatMessage.response,
+        timestamp: chatMessage.timestamp.toISOString(),
+        type: 'ai',
+        questionType: aiResponse.questionType,
+        contextualResponse: aiResponse.contextualResponse,
+        hasAstrologicalData: !!astrologicalData
+      },
+    });
+
+  } catch (error) {
+    console.error('Enhanced chat error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to process chat request',
+      message: 'माफ गर्नुहोस्, केही समस्या भयो। कृपया फेरि प्रयास गर्नुहोस्।'
+    }, { status: 500 });
+  }
+}

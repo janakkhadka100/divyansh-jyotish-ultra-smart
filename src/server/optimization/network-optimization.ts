@@ -15,6 +15,13 @@ interface NetworkConnection {
   lastActivity: Date;
   totalBytes: number;
   totalPackets: number;
+  health: 'healthy' | 'degraded' | 'unhealthy';
+  errorCount: number;
+  responseTime: number;
+  compressionEnabled: boolean;
+  cachingEnabled: boolean;
+  retryCount: number;
+  circuitBreakerState: 'closed' | 'open' | 'half_open';
 }
 
 interface NetworkRoute {
@@ -54,6 +61,14 @@ interface NetworkMetrics {
   networkUtilization: number;
   errorRate: number;
   retransmissionRate: number;
+  cacheHitRate: number;
+  compressionRatio: number;
+  circuitBreakerTrips: number;
+  loadBalancingEfficiency: number;
+  preloadHitRate: number;
+  deduplicationSavings: number;
+  averageResponseTime: number;
+  connectionPoolUtilization: number;
 }
 
 interface LoadBalancer {
@@ -77,6 +92,12 @@ class NetworkOptimizationSystem {
   private compressionEnabled: boolean;
   private cachingEnabled: boolean;
   private cdnEnabled: boolean;
+  private requestCache: Map<string, any>;
+  private circuitBreakers: Map<string, any>;
+  private requestDeduplication: Map<string, Promise<any>>;
+  private preloadQueue: Array<{ url: string; priority: number; timestamp: Date }>;
+  private connectionPool: Map<string, any>;
+  private retryQueue: Array<{ url: string; attempts: number; lastAttempt: Date }>;
 
   constructor() {
     this.connections = new Map();
@@ -87,8 +108,15 @@ class NetworkOptimizationSystem {
     this.compressionEnabled = true;
     this.cachingEnabled = true;
     this.cdnEnabled = true;
+    this.requestCache = new Map();
+    this.circuitBreakers = new Map();
+    this.requestDeduplication = new Map();
+    this.preloadQueue = [];
+    this.connectionPool = new Map();
+    this.retryQueue = [];
     
     this.initializeLoadBalancers();
+    this.initializeAdvancedFeatures();
     this.startNetworkMonitoring();
   }
 
@@ -431,6 +459,393 @@ class NetworkOptimizationSystem {
     balancers.forEach(balancer => {
       this.loadBalancers.set(balancer.id, balancer);
     });
+  }
+
+  /**
+   * Initialize advanced network features
+   */
+  private initializeAdvancedFeatures(): void {
+    this.initializeCircuitBreakers();
+    this.initializeConnectionPool();
+    this.startPreloading();
+  }
+
+  /**
+   * Initialize circuit breakers
+   */
+  private initializeCircuitBreakers(): void {
+    const endpoints = ['openai', 'prokerala', 'analytics', 'cache'];
+    endpoints.forEach(endpoint => {
+      this.circuitBreakers.set(endpoint, {
+        state: 'closed',
+        failureCount: 0,
+        lastFailureTime: new Date(),
+        threshold: 5,
+        timeout: 60000,
+      });
+    });
+  }
+
+  /**
+   * Initialize connection pool
+   */
+  private initializeConnectionPool(): void {
+    for (let i = 0; i < 200; i++) {
+      this.connectionPool.set(`conn_${i}`, {
+        id: `conn_${i}`,
+        available: true,
+        lastUsed: new Date(),
+        requestCount: 0,
+        responseTime: 0,
+        errorCount: 0,
+        health: 'healthy',
+      });
+    }
+  }
+
+  /**
+   * Start preloading system
+   */
+  private startPreloading(): void {
+    setInterval(() => {
+      this.processPreloadQueue();
+    }, 5000); // Every 5 seconds
+  }
+
+  /**
+   * Process preload queue
+   */
+  private processPreloadQueue(): void {
+    if (this.preloadQueue.length === 0) return;
+    
+    // Sort by priority and timestamp
+    this.preloadQueue.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return b.priority - a.priority;
+      }
+      return a.timestamp.getTime() - b.timestamp.getTime();
+    });
+    
+    // Process high-priority items
+    const highPriorityItems = this.preloadQueue.filter(item => item.priority > 7);
+    for (const item of highPriorityItems.slice(0, 5)) { // Process up to 5 items
+      this.preloadRequest(item.url);
+      this.preloadQueue = this.preloadQueue.filter(i => i !== item);
+    }
+  }
+
+  /**
+   * Preload request
+   */
+  private async preloadRequest(url: string): Promise<void> {
+    try {
+      // Mock preload request
+      console.log(`Preloading: ${url}`);
+    } catch (error) {
+      console.warn('Preload failed for:', url);
+    }
+  }
+
+  /**
+   * Add request to preload queue
+   */
+  addToPreloadQueue(url: string, priority: number = 5): void {
+    this.preloadQueue.push({
+      url,
+      priority,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Make optimized HTTP request with advanced features
+   */
+  async makeOptimizedRequest(
+    url: string,
+    options: RequestInit = {},
+    useCache: boolean = true,
+    priority: 'high' | 'medium' | 'low' = 'medium'
+  ): Promise<Response> {
+    const startTime = Date.now();
+    
+    try {
+      // Check circuit breaker
+      const circuitBreaker = this.getCircuitBreaker(url);
+      if (circuitBreaker.state === 'open') {
+        throw new Error('Circuit breaker is open');
+      }
+      
+      // Check for duplicate requests
+      const duplicateKey = this.generateDuplicateKey(url, options);
+      if (this.requestDeduplication.has(duplicateKey)) {
+        return this.requestDeduplication.get(duplicateKey)!;
+      }
+      
+      // Check cache first
+      if (useCache && this.cachingEnabled) {
+        const cachedResponse = this.getCachedResponse(url);
+        if (cachedResponse) {
+          this.updateAdvancedMetrics(true, Date.now() - startTime, true, false);
+          return new Response(JSON.stringify(cachedResponse.response));
+        }
+      }
+      
+      // Get available connection
+      const connection = this.getAvailableConnection();
+      if (!connection) {
+        throw new Error('No available connections');
+      }
+      
+      // Apply optimizations
+      const optimizedOptions = this.optimizeRequest(options);
+      
+      // Make request
+      const response = await this.executeRequest(url, optimizedOptions, connection);
+      
+      // Cache response if successful
+      if (response.ok && this.cachingEnabled) {
+        this.cacheResponse(url, response);
+      }
+      
+      // Update metrics
+      this.updateAdvancedMetrics(response.ok, Date.now() - startTime, false, false);
+      
+      // Update circuit breaker
+      this.updateCircuitBreaker(url, response.ok);
+      
+      return response;
+    } catch (error) {
+      this.updateAdvancedMetrics(false, Date.now() - startTime, false, false);
+      
+      // Update circuit breaker
+      this.updateCircuitBreaker(url, false);
+      
+      // Retry if enabled
+      return this.retryRequest(url, options, useCache, priority);
+    }
+  }
+
+  /**
+   * Get circuit breaker for URL
+   */
+  private getCircuitBreaker(url: string): any {
+    const endpoint = this.extractEndpoint(url);
+    return this.circuitBreakers.get(endpoint) || {
+      state: 'closed',
+      failureCount: 0,
+      lastFailureTime: new Date(),
+      threshold: 5,
+      timeout: 60000,
+    };
+  }
+
+  /**
+   * Update circuit breaker state
+   */
+  private updateCircuitBreaker(url: string, success: boolean): void {
+    const endpoint = this.extractEndpoint(url);
+    const circuitBreaker = this.circuitBreakers.get(endpoint);
+    
+    if (!circuitBreaker) return;
+    
+    if (success) {
+      circuitBreaker.failureCount = 0;
+      circuitBreaker.state = 'closed';
+    } else {
+      circuitBreaker.failureCount++;
+      circuitBreaker.lastFailureTime = new Date();
+      
+      if (circuitBreaker.failureCount >= circuitBreaker.threshold) {
+        circuitBreaker.state = 'open';
+        
+        // Set timeout to try again
+        setTimeout(() => {
+          circuitBreaker.state = 'half_open';
+        }, circuitBreaker.timeout);
+      }
+    }
+  }
+
+  /**
+   * Extract endpoint from URL
+   */
+  private extractEndpoint(url: string): string {
+    if (url.includes('openai')) return 'openai';
+    if (url.includes('prokerala')) return 'prokerala';
+    if (url.includes('analytics')) return 'analytics';
+    return 'cache';
+  }
+
+  /**
+   * Generate duplicate key for request deduplication
+   */
+  private generateDuplicateKey(url: string, options: RequestInit): string {
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.stringify(options.body) : '';
+    return `${method}_${url}_${body}`;
+  }
+
+  /**
+   * Get cached response
+   */
+  private getCachedResponse(url: string): any {
+    const cached = this.requestCache.get(url);
+    
+    if (cached && Date.now() - cached.timestamp.getTime() < cached.ttl) {
+      cached.hits++;
+      cached.lastHit = new Date();
+      return cached;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Cache response
+   */
+  private cacheResponse(url: string, response: Response): void {
+    if (this.requestCache.size >= 5000) {
+      this.evictOldestCacheEntry();
+    }
+    
+    this.requestCache.set(url, {
+      url,
+      response: response.clone(),
+      timestamp: new Date(),
+      ttl: 600000, // 10 minutes
+      hits: 0,
+      lastHit: new Date(),
+    });
+  }
+
+  /**
+   * Evict oldest cache entry
+   */
+  private evictOldestCacheEntry(): void {
+    const oldest = Array.from(this.requestCache.entries())
+      .sort((a, b) => a[1].timestamp.getTime() - b[1].timestamp.getTime())[0];
+    this.requestCache.delete(oldest[0]);
+  }
+
+  /**
+   * Get available connection
+   */
+  private getAvailableConnection(): any {
+    for (const [id, connection] of this.connectionPool.entries()) {
+      if (connection.available && connection.health === 'healthy') {
+        connection.available = false;
+        return connection;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Execute request with connection
+   */
+  private async executeRequest(url: string, options: RequestInit, connection: any): Promise<Response> {
+    const startTime = Date.now();
+    
+    try {
+      // Mock request execution
+      const response = await new Promise<Response>((resolve, reject) => {
+        setTimeout(() => {
+          const responseTime = Date.now() - startTime;
+          
+          // Update connection metrics
+          connection.requestCount++;
+          connection.lastUsed = new Date();
+          connection.responseTime = responseTime;
+          
+          // Update connection health
+          if (responseTime > 5000) {
+            connection.health = 'degraded';
+          } else if (responseTime > 10000) {
+            connection.health = 'unhealthy';
+          }
+          
+          // Mock response
+          const response = new Response(JSON.stringify({ 
+            success: true, 
+            url,
+            responseTime,
+            connectionId: connection.id 
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-Response-Time': responseTime.toString(),
+            },
+          });
+          
+          resolve(response);
+        }, Math.random() * 100 + 50);
+      });
+      
+      return response;
+    } catch (error) {
+      connection.errorCount++;
+      if (connection.errorCount > 5) {
+        connection.health = 'unhealthy';
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Retry failed request
+   */
+  private async retryRequest(
+    url: string,
+    options: RequestInit,
+    useCache: boolean,
+    priority: string
+  ): Promise<Response> {
+    const retryEntry = this.retryQueue.find(entry => entry.url === url);
+    
+    if (retryEntry) {
+      retryEntry.attempts++;
+      retryEntry.lastAttempt = new Date();
+    } else {
+      this.retryQueue.push({
+        url,
+        attempts: 1,
+        lastAttempt: new Date(),
+      });
+    }
+    
+    if (retryEntry && retryEntry.attempts >= 3) {
+      throw new Error('Max retry attempts exceeded');
+    }
+    
+    // Exponential backoff
+    const delay = 1000 * Math.pow(2, retryEntry?.attempts || 1);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    return this.makeOptimizedRequest(url, options, useCache, priority as any);
+  }
+
+  /**
+   * Update advanced metrics
+   */
+  private updateAdvancedMetrics(
+    success: boolean, 
+    responseTime: number, 
+    fromCache: boolean, 
+    fromPreload: boolean
+  ): void {
+    // Update basic metrics
+    if (success) {
+      // Update cache hit rate
+      if (fromCache) {
+        // Mock cache hit rate update
+      }
+      
+      // Update preload hit rate
+      if (fromPreload) {
+        // Mock preload hit rate update
+      }
+    }
   }
 
   /**

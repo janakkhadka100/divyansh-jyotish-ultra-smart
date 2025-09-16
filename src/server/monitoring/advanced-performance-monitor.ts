@@ -722,3 +722,5 @@ class AdvancedPerformanceMonitor {
 }
 
 export const advancedPerformanceMonitor = new AdvancedPerformanceMonitor();
+
+

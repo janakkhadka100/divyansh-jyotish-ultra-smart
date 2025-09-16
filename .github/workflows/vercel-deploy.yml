@@ -37,9 +37,9 @@ jobs:
         run: pnpm test
         env:
           DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-          PROKERALA_CLIENT_ID: ${{ secrets.PROKERALA_CLIENT_ID }}
-          PROKERALA_CLIENT_SECRET: ${{ secrets.PROKERALA_CLIENT_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROKERALA_CLIENT_ID: ${{ secrets.PROKERALA_CLIENT_ID || '' }}
+          PROKERALA_CLIENT_SECRET: ${{ secrets.PROKERALA_CLIENT_SECRET || '' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || '' }}
 
   deploy-preview:
     if: github.event_name == 'pull_request'
@@ -138,3 +138,5 @@ jobs:
         run: |
           echo "❌ Production deployment failed!"
           echo "Please check the logs and try again."
+
+

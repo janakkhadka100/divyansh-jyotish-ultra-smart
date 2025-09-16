@@ -13,10 +13,48 @@
   },
   "landing": {
     "title": "Divyansh Jyotish",
-    "subtitle": "Discover your destiny and life's mysteries",
-    "description": "Learn about your birth chart, dasha periods, and predictions with the help of ancient Vedic astrology.",
-    "formTitle": "Enter your birth details",
-    "getReading": "Get Astrological Reading"
+    "subtitle": "Vedic Astrology Platform",
+    "description": "Get your birth chart and astrological analysis. A combination of ancient Vedic knowledge and modern technology.",
+    "features": {
+      "secure": "Secure and confidential",
+      "instant": "Instant results",
+      "expert": "Expert advice"
+    },
+    "cta": {
+      "title": "Start Your Astrology Journey",
+      "subtitle": "Create an account and get your personal astrology experience",
+      "description": "By keeping your birth details secure, I can give you personal astrological advice.",
+      "createAccount": "Create Account",
+      "signIn": "Sign In",
+      "finalPrompt": "Create an account and get instant astrological advice"
+    },
+    "services": {
+      "title": "Our Services",
+      "kundali": {
+        "title": "Birth Chart",
+        "description": "Learn about your detailed birth chart and planetary positions. Calculated according to ancient Vedic methods."
+      },
+      "dasha": {
+        "title": "Dasha Analysis",
+        "description": "Learn about your current and future dasha periods. Analysis of planetary influences and timing."
+      },
+      "chat": {
+        "title": "Astrology Chat",
+        "description": "Chat directly with an astrologer and get answers to your questions. AI-powered intelligent advice."
+      }
+    },
+    "actions": {
+      "title": "Get Started Today",
+      "intelligentChat": "Intelligent Astrology Chat",
+      "viewDashboard": "View Dashboard"
+    },
+    "footer": {
+      "description": "A combination of ancient Vedic knowledge and modern technology",
+      "services": "Services",
+      "support": "Support",
+      "contact": "Contact",
+      "copyright": "© 2024 Divyansh Jyotish - All rights reserved | Ancient knowledge, modern technology"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
@@ -30,5 +68,32 @@
     "placeholder": "Type your question...",
     "send": "Send",
     "newChat": "New Chat"
+  },
+  "auth": {
+    "signup": {
+      "title": "Create Account",
+      "subtitle": "Enter your details to get started",
+      "name": "Full Name",
+      "email": "Email Address",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "birthDate": "Birth Date",
+      "birthTime": "Birth Time",
+      "birthPlace": "Birth Place",
+      "ayanamsa": "Ayanamsa",
+      "submit": "Create Account",
+      "alreadyHaveAccount": "Already have an account?",
+      "signIn": "Sign In"
+    },
+    "signin": {
+      "title": "Sign In",
+      "subtitle": "Welcome back! Please sign in to your account",
+      "email": "Email Address",
+      "password": "Password",
+      "submit": "Sign In",
+      "dontHaveAccount": "Don't have an account?",
+      "signUp": "Sign Up"
+    }
   }
 }
+

@@ -593,3 +593,5 @@ export const performanceOptimizationService = new PerformanceOptimizationService
 
 // Export class for testing
 export { PerformanceOptimizationService };
+
+

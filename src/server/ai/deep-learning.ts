@@ -595,6 +595,408 @@ class DeepLearningSystem {
   }
 
   /**
+   * Create advanced ensemble model
+   */
+  async createEnsembleModel(): Promise<NeuralNetwork> {
+    try {
+      const layers: Omit<NeuralLayer, 'id'>[] = [
+        {
+          type: 'input',
+          neurons: 100, // Combined features from multiple models
+          activation: 'relu',
+        },
+        {
+          type: 'hidden',
+          neurons: 256,
+          activation: 'relu',
+          dropout: 0.3,
+          batchNorm: true,
+        },
+        {
+          type: 'hidden',
+          neurons: 128,
+          activation: 'relu',
+          dropout: 0.2,
+          batchNorm: true,
+        },
+        {
+          type: 'hidden',
+          neurons: 64,
+          activation: 'relu',
+          dropout: 0.1,
+        },
+        {
+          type: 'output',
+          neurons: 15, // Ensemble predictions
+          activation: 'softmax',
+        },
+      ];
+
+      const network = await this.createNeuralNetwork(
+        'Advanced Ensemble Model',
+        'feedforward',
+        layers,
+        {
+          activation: 'relu',
+          optimizer: 'adam',
+          learningRate: 0.0005,
+          epochs: 300,
+        }
+      );
+
+      return network;
+    } catch (error) {
+      console.error('Ensemble model creation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create quantum-inspired neural network
+   */
+  async createQuantumInspiredNetwork(): Promise<NeuralNetwork> {
+    try {
+      const layers: Omit<NeuralLayer, 'id'>[] = [
+        {
+          type: 'input',
+          neurons: 64, // Quantum state representation
+          activation: 'tanh',
+        },
+        {
+          type: 'hidden',
+          neurons: 128,
+          activation: 'tanh',
+          dropout: 0.2,
+          batchNorm: true,
+        },
+        {
+          type: 'hidden',
+          neurons: 64,
+          activation: 'tanh',
+          dropout: 0.1,
+        },
+        {
+          type: 'output',
+          neurons: 8, // Quantum measurement outcomes
+          activation: 'softmax',
+        },
+      ];
+
+      const network = await this.createNeuralNetwork(
+        'Quantum-Inspired Network',
+        'feedforward',
+        layers,
+        {
+          activation: 'tanh',
+          optimizer: 'adam',
+          learningRate: 0.0001,
+          epochs: 250,
+        }
+      );
+
+      return network;
+    } catch (error) {
+      console.error('Quantum-inspired network creation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create attention-based neural network
+   */
+  async createAttentionNetwork(): Promise<NeuralNetwork> {
+    try {
+      const layers: Omit<NeuralLayer, 'id'>[] = [
+        {
+          type: 'input',
+          neurons: 256, // Input sequence
+          activation: 'linear',
+        },
+        {
+          type: 'transformer',
+          neurons: 128,
+          activation: 'relu',
+          dropout: 0.1,
+        },
+        {
+          type: 'transformer',
+          neurons: 64,
+          activation: 'relu',
+          dropout: 0.1,
+        },
+        {
+          type: 'hidden',
+          neurons: 32,
+          activation: 'relu',
+        },
+        {
+          type: 'output',
+          neurons: 12, // Attention-weighted outputs
+          activation: 'softmax',
+        },
+      ];
+
+      const network = await this.createNeuralNetwork(
+        'Attention-Based Network',
+        'transformer',
+        layers,
+        {
+          activation: 'relu',
+          optimizer: 'adam',
+          learningRate: 0.0001,
+          epochs: 200,
+        }
+      );
+
+      return network;
+    } catch (error) {
+      console.error('Attention network creation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Advanced training with cross-validation
+   */
+  async trainWithCrossValidation(
+    networkId: string,
+    trainingData: TrainingData[],
+    kFolds: number = 5
+  ): Promise<ModelMetrics[]> {
+    try {
+      const network = this.networks.get(networkId);
+      if (!network) {
+        throw new Error('Neural network not found');
+      }
+
+      const foldSize = Math.floor(trainingData.length / kFolds);
+      const metrics: ModelMetrics[] = [];
+
+      for (let fold = 0; fold < kFolds; fold++) {
+        const start = fold * foldSize;
+        const end = fold === kFolds - 1 ? trainingData.length : start + foldSize;
+        
+        const validationData = trainingData.slice(start, end);
+        const trainData = [
+          ...trainingData.slice(0, start),
+          ...trainingData.slice(end)
+        ];
+
+        console.log(`Training fold ${fold + 1}/${kFolds}`);
+        const foldMetrics = await this.trainNeuralNetwork(networkId, trainData, validationData);
+        metrics.push(foldMetrics);
+      }
+
+      return metrics;
+    } catch (error) {
+      console.error('Cross-validation training error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Hyperparameter optimization
+   */
+  async optimizeHyperparameters(
+    networkId: string,
+    trainingData: TrainingData[],
+    searchSpace: {
+      learningRates: number[];
+      batchSizes: number[];
+      epochs: number[];
+    }
+  ): Promise<{ bestConfig: any; bestMetrics: ModelMetrics }> {
+    try {
+      const network = this.networks.get(networkId);
+      if (!network) {
+        throw new Error('Neural network not found');
+      }
+
+      let bestMetrics: ModelMetrics | null = null;
+      let bestConfig: any = null;
+
+      for (const learningRate of searchSpace.learningRates) {
+        for (const batchSize of searchSpace.batchSizes) {
+          for (const epochs of searchSpace.epochs) {
+            // Update network configuration
+            network.learningRate = learningRate;
+            network.epochs = epochs;
+
+            // Train with current configuration
+            const metrics = await this.trainNeuralNetwork(networkId, trainingData);
+            
+            // Check if this is the best configuration
+            if (!bestMetrics || metrics.accuracy > bestMetrics.accuracy) {
+              bestMetrics = metrics;
+              bestConfig = { learningRate, batchSize, epochs };
+            }
+          }
+        }
+      }
+
+      return { bestConfig, bestMetrics: bestMetrics! };
+    } catch (error) {
+      console.error('Hyperparameter optimization error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Model pruning for efficiency
+   */
+  async pruneModel(networkId: string, pruningRatio: number = 0.1): Promise<void> {
+    try {
+      const network = this.networks.get(networkId);
+      if (!network) {
+        throw new Error('Neural network not found');
+      }
+
+      // Prune weights based on magnitude
+      for (let i = 0; i < network.weights.length; i++) {
+        const layerWeights = network.weights[i];
+        const threshold = this.calculatePruningThreshold(layerWeights, pruningRatio);
+        
+        for (let j = 0; j < layerWeights.length; j++) {
+          for (let k = 0; k < layerWeights[j].length; k++) {
+            if (Math.abs(layerWeights[j][k]) < threshold) {
+              layerWeights[j][k] = 0;
+            }
+          }
+        }
+      }
+
+      console.log(`Model ${networkId} pruned with ratio ${pruningRatio}`);
+    } catch (error) {
+      console.error('Model pruning error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate pruning threshold
+   */
+  private calculatePruningThreshold(weights: number[][], ratio: number): number {
+    const flatWeights = weights.flat().map(Math.abs).sort((a, b) => a - b);
+    const thresholdIndex = Math.floor(flatWeights.length * ratio);
+    return flatWeights[thresholdIndex] || 0;
+  }
+
+  /**
+   * Model quantization for faster inference
+   */
+  async quantizeModel(networkId: string, bits: number = 8): Promise<void> {
+    try {
+      const network = this.networks.get(networkId);
+      if (!network) {
+        throw new Error('Neural network not found');
+      }
+
+      const maxValue = Math.pow(2, bits - 1) - 1;
+      const minValue = -Math.pow(2, bits - 1);
+
+      // Quantize weights
+      for (let i = 0; i < network.weights.length; i++) {
+        const layerWeights = network.weights[i];
+        
+        for (let j = 0; j < layerWeights.length; j++) {
+          for (let k = 0; k < layerWeights[j].length; k++) {
+            const quantized = Math.round(layerWeights[j][k] * maxValue);
+            layerWeights[j][k] = Math.max(minValue, Math.min(maxValue, quantized)) / maxValue;
+          }
+        }
+      }
+
+      console.log(`Model ${networkId} quantized to ${bits} bits`);
+    } catch (error) {
+      console.error('Model quantization error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get model performance insights
+   */
+  getModelInsights(networkId: string): any {
+    const network = this.networks.get(networkId);
+    if (!network) {
+      throw new Error('Neural network not found');
+    }
+
+    const totalParams = network.weights.reduce((sum, layer) => 
+      sum + layer.reduce((layerSum, neuron) => layerSum + neuron.length, 0), 0
+    );
+
+    const totalNeurons = network.layers.reduce((sum, layer) => sum + layer.neurons, 0);
+
+    return {
+      networkId,
+      name: network.name,
+      type: network.type,
+      status: network.status,
+      accuracy: network.accuracy,
+      loss: network.loss,
+      totalParams,
+      totalNeurons,
+      layers: network.layers.length,
+      learningRate: network.learningRate,
+      epochs: network.epochs,
+      optimizer: network.optimizer,
+      activation: network.activation,
+      efficiency: totalParams / totalNeurons,
+      complexity: totalParams * network.layers.length,
+    };
+  }
+
+  /**
+   * Export model for deployment
+   */
+  async exportModel(networkId: string, format: 'json' | 'onnx' | 'tensorflow' = 'json'): Promise<any> {
+    try {
+      const network = this.networks.get(networkId);
+      if (!network) {
+        throw new Error('Neural network not found');
+      }
+
+      switch (format) {
+        case 'json':
+          return {
+            id: network.id,
+            name: network.name,
+            type: network.type,
+            layers: network.layers,
+            weights: network.weights,
+            biases: network.biases,
+            activation: network.activation,
+            optimizer: network.optimizer,
+            learningRate: network.learningRate,
+            accuracy: network.accuracy,
+            loss: network.loss,
+            status: network.status,
+          };
+        case 'onnx':
+          // Mock ONNX export
+          return {
+            format: 'onnx',
+            model: `ONNX model for ${network.name}`,
+            version: '1.0',
+          };
+        case 'tensorflow':
+          // Mock TensorFlow export
+          return {
+            format: 'tensorflow',
+            model: `TensorFlow model for ${network.name}`,
+            version: '2.0',
+          };
+        default:
+          throw new Error(`Unsupported export format: ${format}`);
+      }
+    } catch (error) {
+      console.error('Model export error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Clear deep learning data
    */
   clearDeepLearningData(): void {

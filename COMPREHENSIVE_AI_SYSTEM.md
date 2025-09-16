@@ -384,3 +384,5 @@ pnpm start
 **Divyansh Jyotish - वैदिक ज्योतिष**  
 *Ultra-Smart AI-Powered Vedic Astrology Platform*  
 *Powered by Advanced AI, Quantum Computing, and Edge Computing*
+
+

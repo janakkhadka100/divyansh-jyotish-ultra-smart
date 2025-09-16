@@ -8,130 +8,69 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Optional for demo mode
 }
 
 model User {
   id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  birthData Json     // Store birth data as JSON
   createdAt DateTime @default(now())
-  name      String?
-  locale    String   @default("ne")
-  sessions  Session[]
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  astrologicalData AstrologicalData[]
+  chatMessages     ChatMessage[]
+  sessions         Session[]
 
   @@map("users")
 }
 
-model Session {
+model AstrologicalData {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  birth     BirthInput?
-  result    HoroscopeResult?
-  chats     ChatMessage[]
-
-  @@map("sessions")
-}
-
-model BirthInput {
-  id              String   @id @default(cuid())
-  session         Session  @relation(fields: [sessionId], references: [id])
-  sessionId       String   @unique
-  name            String?
-  date            DateTime // UTC date-time computed from local + tz
-  rawDate         String   // user's local date string
-  rawTime         String   // user's local time string
-  location        String
-  lat             Float
-  lon             Float
-  tzId            String   // Olson TZ
-  tzOffsetMinutes Int
-
-  @@map("birth_inputs")
-}
-
-model HoroscopeResult {
-  id        String   @id @default(cuid())
-  session   Session  @relation(fields: [sessionId], references: [id])
-  sessionId String   @unique
-  provider  String   // "prokerala"
-  payload   Json     // whole response (kundli, varga charts, dasha trees, yogini etc.)
-  summary   Json     // distilled fields for UI
-
-  @@map("horoscope_results")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Prokerala API data
+  kundliData    Json? // Birth chart data
+  dashaData     Json? // Planetary periods
+  panchangData  Json? // Hindu calendar data
+  
+  // Computed summary for quick access
+  ascendant     String?
+  moonSign      String?
+  sunSign       String?
+  currentDasha  String?
+  
+  // Metadata
+  computedAt    DateTime @default(now())
+  provider      String   @default("prokerala")
+  
+  @@map("astrological_data")
 }
 
 model ChatMessage {
   id        String   @id @default(cuid())
-  session   Session  @relation(fields: [sessionId], references: [id])
-  sessionId String
-  role      String   // "user" | "assistant" | "system"
-  content   String
-  createdAt DateTime @default(now())
-  lang      String   @default("ne")
-
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  message   String
+  response  String
+  timestamp DateTime @default(now())
+  
   @@map("chat_messages")
 }
 
-model AnalyticsEvent {
+model Session {
   id        String   @id @default(cuid())
-  type      String   // "api_call" | "user_action" | "error" | "performance" | "business"
-  category  String
-  action    String
-  userId    String?
-  sessionId String?
-  metadata  Json
-  timestamp DateTime @default(now())
-  duration  Int?
-  success   Boolean
-  ipAddress String?
-  userAgent String?
-  location  Json?
-
-  @@map("analytics_events")
-}
-
-model UserSession {
-  id          String    @id @default(cuid())
-  userId      String
-  deviceId    String
-  ipAddress   String
-  userAgent   String
-  location    String?   // JSON string
-  permissions String?   // JSON string
-  metadata    String?   // JSON string
-  createdAt   DateTime  @default(now())
-  lastActivity DateTime @default(now())
-  expiresAt   DateTime
-  isActive    Boolean   @default(true)
-
-  @@map("user_sessions")
-}
-
-model SecurityEvent {
-  id          String   @id @default(cuid())
-  type        String   // "login" | "logout" | "failed_login" | "suspicious_activity" | "rate_limit" | "data_access" | "permission_denied"
-  severity    String   // "low" | "medium" | "high" | "critical"
-  userId      String?
-  sessionId   String?
-  ipAddress   String
-  userAgent   String
-  description String
-  metadata    String   // JSON string
-  timestamp   DateTime @default(now())
-  resolved    Boolean  @default(false)
-
-  @@map("security_events")
-}
-
-model CacheEntry {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  data      String   // JSON string
-  timestamp DateTime @default(now())
-  ttl       Int      // TTL in milliseconds
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token     String   @unique
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([key])
-  @@index([timestamp])
+  
+  @@map("sessions")
 }

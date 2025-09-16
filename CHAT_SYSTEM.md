@@ -386,3 +386,5 @@ const CHAT_CONFIG = {
 - **Comprehensive analytics** for business insights
 
 **Ready for users to experience personalized Jyotish consultations! 🎯✨**
+
+

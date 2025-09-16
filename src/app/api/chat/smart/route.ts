@@ -446,3 +446,5 @@ async function getSmartContext(sessionId: string) {
     lastMessage: recentChats[0]?.createdAt,
   };
 }
+
+

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+// import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Calendar, Clock, MapPin, User, MessageSquare, Loader2 } from 'lucide-react';
 
 interface BirthDetails {
@@ -12,6 +12,7 @@ interface BirthDetails {
   birthDate: string;
   birthTime: string;
   birthPlace: string;
+  ayanamsa: number;
 }
 
 interface ComputeResult {
@@ -43,12 +44,13 @@ interface EnhancedBirthDetailsFormProps {
 }
 
 export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetailsFormProps) {
-  const t = useTranslations();
+  // const t = useTranslations();
   const [formData, setFormData] = useState<BirthDetails>({
     name: '',
     birthDate: '',
     birthTime: '',
     birthPlace: '',
+    ayanamsa: 1, // Default to Lahiri
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<ComputeResult | null>(null);
@@ -150,7 +152,7 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
     setResult(null);
 
     try {
-      const response = await fetch('/api/compute', {
+      const response = await fetch('/api/compute-demo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,13 +163,15 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
           time: formData.birthTime,
           location: formData.birthPlace,
           lang: locale,
+          ayanamsa: formData.ayanamsa,
         }),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setResult(data);
+        // Redirect to results page
+        window.location.href = `/ne/results?sessionId=${data.data.sessionId}`;
       } else {
         setError(`${messages.errors.computeError} ${data.error || data.message}`);
       }
@@ -192,6 +196,7 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
       birthDate: '',
       birthTime: '',
       birthPlace: '',
+      ayanamsa: 1,
     });
     setResult(null);
     setError(null);
@@ -199,12 +204,12 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Card className="vedic-card">
+      <Card className="bg-slate-800/50 border-slate-700 shadow-2xl">
         <CardHeader>
-          <CardTitle className="text-2xl text-vedic-red text-center devanagari">
+          <CardTitle className="text-2xl text-yellow-400 text-center">
             {messages.formTitle}
           </CardTitle>
-          <CardDescription className="text-center text-vedic-white/80 devanagari">
+          <CardDescription className="text-center text-white/80">
             {messages.formDescription}
           </CardDescription>
         </CardHeader>
@@ -212,7 +217,7 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
           {!result ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
+                <label className="text-white font-medium flex items-center gap-2">
                   <User className="h-4 w-4" />
                   {messages.name}
                 </label>
@@ -220,13 +225,13 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder={messages.namePlaceholder} 
-                  className="vedic-input devanagari"
+                  className="bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-yellow-400"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
+                <label className="text-white font-medium flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   {messages.birthDate}
                 </label>
@@ -234,13 +239,13 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
                   type="date" 
                   value={formData.birthDate}
                   onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                  className="vedic-input"
+                  className="bg-slate-700 border-slate-600 text-white focus:border-yellow-400 focus:ring-yellow-400"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
+                <label className="text-white font-medium flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   {messages.birthTime}
                 </label>
@@ -248,13 +253,13 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
                   type="time" 
                   value={formData.birthTime}
                   onChange={(e) => handleInputChange('birthTime', e.target.value)}
-                  className="vedic-input"
+                  className="bg-slate-700 border-slate-600 text-white focus:border-yellow-400 focus:ring-yellow-400"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-vedic-white font-medium devanagari flex items-center gap-2">
+                <label className="text-white font-medium flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   {messages.birthPlace}
                 </label>
@@ -262,9 +267,26 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
                   value={formData.birthPlace}
                   onChange={(e) => handleInputChange('birthPlace', e.target.value)}
                   placeholder={messages.birthPlacePlaceholder} 
-                  className="vedic-input devanagari"
+                  className="bg-slate-700 border-slate-600 text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-yellow-400"
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-white font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  अयनांश
+                </label>
+                <select 
+                  value={formData.ayanamsa}
+                  onChange={(e) => handleInputChange('ayanamsa', parseInt(e.target.value))}
+                  className="bg-slate-700 border-slate-600 text-white focus:border-yellow-400 focus:ring-yellow-400 rounded-md px-3 py-2"
+                  required
+                >
+                  <option value={1}>लाहिरी (Lahiri)</option>
+                  <option value={2}>रामन (Raman)</option>
+                  <option value={3}>कृष्णमूर्ति (Krishnamurti)</option>
+                </select>
               </div>
 
               {error && (
@@ -275,16 +297,19 @@ export default function EnhancedBirthDetailsForm({ locale }: EnhancedBirthDetail
 
               <Button 
                 type="submit" 
-                className="w-full vedic-button text-lg py-3"
+                className="w-full bg-yellow-400 text-slate-900 hover:bg-yellow-300 font-bold text-lg py-3 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     {messages.processing}
                   </>
                 ) : (
-                  messages.getReading
+                  <>
+                    <MessageSquare className="h-5 w-5 mr-2" />
+                    {messages.getReading}
+                  </>
                 )}
               </Button>
             </form>

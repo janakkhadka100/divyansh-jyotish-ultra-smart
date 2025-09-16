@@ -414,3 +414,5 @@ export const mobileOptimizationService = new MobileOptimizationService();
 
 // Export class for testing
 export { MobileOptimizationService };
+
+

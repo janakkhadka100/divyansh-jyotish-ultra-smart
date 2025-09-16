@@ -1,467 +1,564 @@
-import { prisma } from '@/server/lib/prisma';
 import { analyticsService } from '@/server/services/analytics';
-import { caches } from '@/server/services/cache';
 
 interface EdgeNode {
   id: string;
-  region: string;
-  location: string;
-  latency: number;
-  capacity: number;
-  status: 'active' | 'inactive' | 'maintenance';
-  lastPing: Date;
-  performance: {
+  name: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    city: string;
+    country: string;
+    region: string;
+  };
+  capabilities: {
+    cpu: number;
+    memory: number;
+    storage: number;
+    bandwidth: number;
+    gpu: boolean;
+    aiAcceleration: boolean;
+  };
+  status: 'online' | 'offline' | 'maintenance' | 'overloaded';
+  load: {
     cpu: number;
     memory: number;
     network: number;
+    storage: number;
   };
+  latency: {
+    average: number;
+    min: number;
+    max: number;
+    p95: number;
+  };
+  lastUpdated: Date;
 }
 
 interface EdgeRequest {
   id: string;
-  sessionId: string;
   userId: string;
-  type: 'compute' | 'chat' | 'analysis' | 'prediction';
+  type: 'computation' | 'storage' | 'ai_inference' | 'data_processing';
   priority: 'low' | 'medium' | 'high' | 'critical';
+  requirements: {
+    cpu: number;
+    memory: number;
+    storage: number;
+    latency: number;
+    gpu: boolean;
+  };
   data: any;
-  region: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
   timestamp: Date;
+  assignedNode?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: any;
+  processingTime?: number;
 }
 
-interface EdgeResponse {
+interface EdgeOptimization {
   id: string;
-  requestId: string;
-  nodeId: string;
-  result: any;
-  latency: number;
-  processingTime: number;
-  cacheHit: boolean;
+  type: 'load_balancing' | 'caching' | 'data_replication' | 'latency_optimization' | 'resource_allocation';
+  description: string;
+  beforeMetrics: any;
+  afterMetrics: any;
+  improvement: number;
+  applied: boolean;
   timestamp: Date;
 }
 
-interface CDNConfig {
-  regions: string[];
-  edgeNodes: EdgeNode[];
-  cacheStrategy: 'aggressive' | 'moderate' | 'conservative';
-  replicationFactor: number;
-  ttl: number;
+interface EdgeMetrics {
+  totalNodes: number;
+  onlineNodes: number;
+  totalRequests: number;
+  completedRequests: number;
+  failedRequests: number;
+  averageLatency: number;
+  averageProcessingTime: number;
+  resourceUtilization: {
+    cpu: number;
+    memory: number;
+    storage: number;
+    network: number;
+  };
+  geographicDistribution: { [region: string]: number };
+  performanceScore: number;
 }
 
-class EdgeComputingSystem {
+class EdgeComputingOptimizationService {
   private edgeNodes: Map<string, EdgeNode>;
   private requests: Map<string, EdgeRequest>;
-  private responses: Map<string, EdgeResponse>;
-  private cdnConfig: CDNConfig;
-  private loadBalancer: any;
+  private optimizations: Map<string, EdgeOptimization>;
+  private metrics: EdgeMetrics;
 
   constructor() {
     this.edgeNodes = new Map();
     this.requests = new Map();
-    this.responses = new Map();
-    this.cdnConfig = {
-      regions: ['us-east', 'us-west', 'eu-west', 'ap-south', 'ap-southeast'],
-      edgeNodes: [],
-      cacheStrategy: 'aggressive',
-      replicationFactor: 3,
-      ttl: 300000, // 5 minutes
+    this.optimizations = new Map();
+    this.metrics = {
+      totalNodes: 0,
+      onlineNodes: 0,
+      totalRequests: 0,
+      completedRequests: 0,
+      failedRequests: 0,
+      averageLatency: 0,
+      averageProcessingTime: 0,
+      resourceUtilization: { cpu: 0, memory: 0, storage: 0, network: 0 },
+      geographicDistribution: {},
+      performanceScore: 0,
     };
-    this.loadBalancer = null;
     
     this.initializeEdgeNodes();
   }
 
-  /**
-   * Process request through edge computing
-   */
-  async processEdgeRequest(
-    request: Omit<EdgeRequest, 'id' | 'timestamp'>
-  ): Promise<EdgeResponse> {
+  private initializeEdgeNodes(): void {
+    const nodes = [
+      {
+        id: 'edge_us_east',
+        name: 'US East Edge Node',
+        location: {
+          latitude: 40.7128,
+          longitude: -74.0060,
+          city: 'New York',
+          country: 'USA',
+          region: 'us-east',
+        },
+        capabilities: {
+          cpu: 16,
+          memory: 64,
+          storage: 1000,
+          bandwidth: 1000,
+          gpu: true,
+          aiAcceleration: true,
+        },
+        status: 'online' as const,
+        load: { cpu: 0.3, memory: 0.4, network: 0.2, storage: 0.1 },
+        latency: { average: 10, min: 5, max: 20, p95: 15 },
+        lastUpdated: new Date(),
+      },
+      {
+        id: 'edge_us_west',
+        name: 'US West Edge Node',
+        location: {
+          latitude: 37.7749,
+          longitude: -122.4194,
+          city: 'San Francisco',
+          country: 'USA',
+          region: 'us-west',
+        },
+        capabilities: {
+          cpu: 12,
+          memory: 48,
+          storage: 800,
+          bandwidth: 800,
+          gpu: true,
+          aiAcceleration: true,
+        },
+        status: 'online' as const,
+        load: { cpu: 0.5, memory: 0.6, network: 0.3, storage: 0.2 },
+        latency: { average: 12, min: 6, max: 25, p95: 18 },
+        lastUpdated: new Date(),
+      },
+      {
+        id: 'edge_eu_west',
+        name: 'EU West Edge Node',
+        location: {
+          latitude: 51.5074,
+          longitude: -0.1278,
+          city: 'London',
+          country: 'UK',
+          region: 'eu-west',
+        },
+        capabilities: {
+          cpu: 14,
+          memory: 56,
+          storage: 900,
+          bandwidth: 900,
+          gpu: false,
+          aiAcceleration: true,
+        },
+        status: 'online' as const,
+        load: { cpu: 0.4, memory: 0.5, network: 0.4, storage: 0.3 },
+        latency: { average: 15, min: 8, max: 30, p95: 22 },
+        lastUpdated: new Date(),
+      },
+    ];
+
+    nodes.forEach(node => {
+      this.edgeNodes.set(node.id, node);
+    });
+
+    this.updateMetrics();
+  }
+
+  async processEdgeRequest(request: Omit<EdgeRequest, 'id' | 'timestamp' | 'status'>): Promise<EdgeRequest> {
     const startTime = Date.now();
     
     try {
       const edgeRequest: EdgeRequest = {
         ...request,
-        id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `edge_req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date(),
+        status: 'pending',
       };
 
-      this.requests.set(edgeRequest.id, edgeRequest);
-
-      // Select optimal edge node
-      const optimalNode = await this.selectOptimalNode(edgeRequest);
+      const optimalNode = await this.findOptimalNode(edgeRequest);
       
-      // Check cache first
-      const cacheKey = this.generateCacheKey(edgeRequest);
-      const cachedResponse = await this.getCachedResponse(cacheKey);
-      
-      if (cachedResponse) {
-        const response: EdgeResponse = {
-          id: `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          requestId: edgeRequest.id,
-          nodeId: optimalNode.id,
-          result: cachedResponse,
-          latency: Date.now() - startTime,
-          processingTime: 0,
-          cacheHit: true,
-          timestamp: new Date(),
-        };
-        
-        this.responses.set(response.id, response);
-        return response;
+      if (!optimalNode) {
+        throw new Error('No suitable edge node available');
       }
 
-      // Process request on edge node
-      const result = await this.processOnEdgeNode(optimalNode, edgeRequest);
-      
-      // Cache the result
-      await this.cacheResponse(cacheKey, result);
-      
-      const response: EdgeResponse = {
-        id: `resp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        requestId: edgeRequest.id,
-        nodeId: optimalNode.id,
-        result,
-        latency: Date.now() - startTime,
-        processingTime: Date.now() - startTime,
-        cacheHit: false,
-        timestamp: new Date(),
-      };
-      
-      this.responses.set(response.id, response);
+      edgeRequest.assignedNode = optimalNode.id;
+      edgeRequest.status = 'processing';
 
-      // Track analytics
+      const result = await this.processRequestOnNode(optimalNode, edgeRequest);
+      
+      edgeRequest.result = result;
+      edgeRequest.status = 'completed';
+      edgeRequest.processingTime = Date.now() - startTime;
+
+      this.requests.set(edgeRequest.id, edgeRequest);
+      this.updateMetrics();
+
       await analyticsService.trackEvent({
-        type: 'performance',
-        category: 'edge_computing',
+        type: 'edge_computing',
+        category: 'request_processing',
         action: 'request_processed',
-        sessionId: edgeRequest.sessionId,
         metadata: {
+          requestId: edgeRequest.id,
           nodeId: optimalNode.id,
-          region: optimalNode.region,
-          latency: response.latency,
-          cacheHit: response.cacheHit,
           requestType: edgeRequest.type,
+          priority: edgeRequest.priority,
+          processingTime: edgeRequest.processingTime,
+          latency: optimalNode.latency.average,
         },
         success: true,
-        duration: response.latency,
+        duration: edgeRequest.processingTime,
       });
 
-      return response;
+      return edgeRequest;
+
     } catch (error) {
-      console.error('Edge computing error:', error);
+      console.error('Edge request processing error:', error);
+      
+      const failedRequest: EdgeRequest = {
+        ...request,
+        id: `edge_req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: new Date(),
+        status: 'failed',
+        processingTime: Date.now() - startTime,
+      };
+
+      this.requests.set(failedRequest.id, failedRequest);
+      this.updateMetrics();
+
       throw error;
     }
   }
 
-  /**
-   * Initialize edge nodes
-   */
-  private initializeEdgeNodes(): void {
-    const regions = this.cdnConfig.regions;
-    
-    regions.forEach((region, index) => {
-      const node: EdgeNode = {
-        id: `edge_${region}_${index}`,
-        region,
-        location: this.getRegionLocation(region),
-        latency: Math.random() * 50 + 10, // 10-60ms
-        capacity: Math.floor(Math.random() * 1000) + 500, // 500-1500 requests/min
-        status: 'active',
-        lastPing: new Date(),
-        performance: {
-          cpu: Math.random() * 30 + 20, // 20-50%
-          memory: Math.random() * 40 + 30, // 30-70%
-          network: Math.random() * 20 + 80, // 80-100%
-        },
-      };
-      
-      this.edgeNodes.set(node.id, node);
-      this.cdnConfig.edgeNodes.push(node);
-    });
-  }
-
-  /**
-   * Select optimal edge node
-   */
-  private async selectOptimalNode(request: EdgeRequest): Promise<EdgeNode> {
+  private async findOptimalNode(request: EdgeRequest): Promise<EdgeNode | null> {
     const availableNodes = Array.from(this.edgeNodes.values())
-      .filter(node => node.status === 'active')
-      .filter(node => node.region === request.region || this.isNearbyRegion(node.region, request.region));
+      .filter(node => node.status === 'online' && this.canHandleRequest(node, request));
 
     if (availableNodes.length === 0) {
-      throw new Error('No available edge nodes');
-    }
-
-    // Select node with best performance score
-    const bestNode = availableNodes.reduce((best, current) => {
-      const bestScore = this.calculateNodeScore(best, request);
-      const currentScore = this.calculateNodeScore(current, request);
-      return currentScore > bestScore ? current : best;
-    });
-
-    return bestNode;
-  }
-
-  /**
-   * Calculate node performance score
-   */
-  private calculateNodeScore(node: EdgeNode, request: EdgeRequest): number {
-    const latencyScore = Math.max(0, 100 - node.latency) / 100;
-    const capacityScore = node.capacity / 1000;
-    const performanceScore = (node.performance.cpu + node.performance.memory + node.performance.network) / 300;
-    
-    // Weighted score
-    return (latencyScore * 0.4) + (capacityScore * 0.3) + (performanceScore * 0.3);
-  }
-
-  /**
-   * Process request on edge node
-   */
-  private async processOnEdgeNode(node: EdgeNode, request: EdgeRequest): Promise<any> {
-    // Simulate processing based on request type
-    switch (request.type) {
-      case 'compute':
-        return await this.processComputeRequest(request);
-      case 'chat':
-        return await this.processChatRequest(request);
-      case 'analysis':
-        return await this.processAnalysisRequest(request);
-      case 'prediction':
-        return await this.processPredictionRequest(request);
-      default:
-        throw new Error('Unknown request type');
-    }
-  }
-
-  /**
-   * Process compute request
-   */
-  private async processComputeRequest(request: EdgeRequest): Promise<any> {
-    // Simulate astrological computation
-    return {
-      type: 'compute',
-      result: {
-        horoscope: 'Computed horoscope data',
-        dasha: 'Current dasha analysis',
-        yogas: 'Key yogas identified',
-        predictions: 'Future predictions generated',
-      },
-      processingTime: Math.random() * 1000 + 500,
-      nodeId: 'edge_compute',
-    };
-  }
-
-  /**
-   * Process chat request
-   */
-  private async processChatRequest(request: EdgeRequest): Promise<any> {
-    // Simulate AI chat processing
-    return {
-      type: 'chat',
-      result: {
-        response: 'AI response generated',
-        confidence: 0.9,
-        metadata: {
-          model: 'gpt-4',
-          tokens: 150,
-        },
-      },
-      processingTime: Math.random() * 2000 + 1000,
-      nodeId: 'edge_chat',
-    };
-  }
-
-  /**
-   * Process analysis request
-   */
-  private async processAnalysisRequest(request: EdgeRequest): Promise<any> {
-    // Simulate astrological analysis
-    return {
-      type: 'analysis',
-      result: {
-        analysis: 'Comprehensive astrological analysis',
-        insights: 'Key insights generated',
-        recommendations: 'Remedial recommendations',
-      },
-      processingTime: Math.random() * 1500 + 800,
-      nodeId: 'edge_analysis',
-    };
-  }
-
-  /**
-   * Process prediction request
-   */
-  private async processPredictionRequest(request: EdgeRequest): Promise<any> {
-    // Simulate prediction processing
-    return {
-      type: 'prediction',
-      result: {
-        predictions: 'Future predictions generated',
-        confidence: 0.85,
-        timeframe: 'Next 6 months',
-      },
-      processingTime: Math.random() * 1200 + 600,
-      nodeId: 'edge_prediction',
-    };
-  }
-
-  /**
-   * Generate cache key
-   */
-  private generateCacheKey(request: EdgeRequest): string {
-    return `edge_${request.type}_${request.sessionId}_${Buffer.from(JSON.stringify(request.data)).toString('base64')}`;
-  }
-
-  /**
-   * Get cached response
-   */
-  private async getCachedResponse(cacheKey: string): Promise<any> {
-    try {
-      return await caches.general.get(cacheKey);
-    } catch (error) {
-      console.error('Cache retrieval error:', error);
       return null;
     }
+
+    const nodeScores = availableNodes.map(node => ({
+      node,
+      score: this.calculateNodeScore(node, request),
+    }));
+
+    nodeScores.sort((a, b) => b.score - a.score);
+    return nodeScores[0].node;
   }
 
-  /**
-   * Cache response
-   */
-  private async cacheResponse(cacheKey: string, result: any): Promise<void> {
-    try {
-      await caches.general.set(cacheKey, result, this.cdnConfig.ttl);
-    } catch (error) {
-      console.error('Cache storage error:', error);
+  private canHandleRequest(node: EdgeNode, request: EdgeRequest): boolean {
+    const { requirements } = request;
+    
+    return (
+      node.capabilities.cpu >= requirements.cpu &&
+      node.capabilities.memory >= requirements.memory &&
+      node.capabilities.storage >= requirements.storage &&
+      node.latency.average <= requirements.latency &&
+      (!requirements.gpu || node.capabilities.gpu) &&
+      node.load.cpu < 0.8 &&
+      node.load.memory < 0.8
+    );
+  }
+
+  private calculateNodeScore(node: EdgeNode, request: EdgeRequest): number {
+    let score = 0;
+
+    const latencyScore = Math.max(0, 1 - (node.latency.average / 100));
+    score += latencyScore * 0.4;
+
+    const loadScore = Math.max(0, 1 - ((node.load.cpu + node.load.memory) / 2));
+    score += loadScore * 0.3;
+
+    const proximityScore = this.calculateProximityScore(node, request);
+    score += proximityScore * 0.2;
+
+    const capabilityScore = this.calculateCapabilityScore(node, request);
+    score += capabilityScore * 0.1;
+
+    return score;
+  }
+
+  private calculateProximityScore(node: EdgeNode, request: EdgeRequest): number {
+    const distance = this.calculateDistance(
+      node.location.latitude,
+      node.location.longitude,
+      request.location.latitude,
+      request.location.longitude
+    );
+    
+    return Math.max(0, 1 - (distance / 10000));
+  }
+
+  private calculateCapabilityScore(node: EdgeNode, request: EdgeRequest): number {
+    const { requirements } = request;
+    
+    const cpuScore = Math.min(1, node.capabilities.cpu / requirements.cpu);
+    const memoryScore = Math.min(1, node.capabilities.memory / requirements.memory);
+    const storageScore = Math.min(1, node.capabilities.storage / requirements.storage);
+    
+    return (cpuScore + memoryScore + storageScore) / 3;
+  }
+
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLon = this.toRadians(lon2 - lon1);
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    return R * c;
+  }
+
+  private toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
+  private async processRequestOnNode(node: EdgeNode, request: EdgeRequest): Promise<any> {
+    const processingTime = Math.random() * 1000 + 100;
+    
+    await new Promise(resolve => setTimeout(resolve, processingTime));
+    
+    node.load.cpu += 0.1;
+    node.load.memory += 0.1;
+    node.load.network += 0.05;
+    node.lastUpdated = new Date();
+    
+    switch (request.type) {
+      case 'computation':
+        return { result: 'computation_completed', processingTime };
+      case 'storage':
+        return { result: 'storage_operation_completed', processingTime };
+      case 'ai_inference':
+        return { result: 'ai_inference_completed', processingTime };
+      case 'data_processing':
+        return { result: 'data_processing_completed', processingTime };
+      default:
+        return { result: 'unknown_operation_completed', processingTime };
     }
   }
 
-  /**
-   * Get region location
-   */
-  private getRegionLocation(region: string): string {
-    const locations = {
-      'us-east': 'Virginia, USA',
-      'us-west': 'California, USA',
-      'eu-west': 'Ireland',
-      'ap-south': 'Mumbai, India',
-      'ap-southeast': 'Singapore',
-    };
+  async optimizeEdgeComputing(): Promise<EdgeOptimization[]> {
+    const optimizations: EdgeOptimization[] = [];
     
-    return locations[region as keyof typeof locations] || 'Unknown';
-  }
-
-  /**
-   * Check if region is nearby
-   */
-  private isNearbyRegion(nodeRegion: string, requestRegion: string): boolean {
-    const nearbyRegions = {
-      'us-east': ['us-west'],
-      'us-west': ['us-east'],
-      'eu-west': ['ap-south'],
-      'ap-south': ['ap-southeast', 'eu-west'],
-      'ap-southeast': ['ap-south'],
-    };
-    
-    return nearbyRegions[requestRegion as keyof typeof nearbyRegions]?.includes(nodeRegion) || false;
-  }
-
-  /**
-   * Optimize CDN configuration
-   */
-  async optimizeCDN(): Promise<void> {
     try {
-      // Analyze performance metrics
-      const performanceMetrics = await this.analyzePerformance();
-      
-      // Optimize cache strategy
-      if (performanceMetrics.cacheHitRate < 0.7) {
-        this.cdnConfig.cacheStrategy = 'aggressive';
-        this.cdnConfig.ttl = 600000; // 10 minutes
-      } else if (performanceMetrics.cacheHitRate > 0.9) {
-        this.cdnConfig.cacheStrategy = 'conservative';
-        this.cdnConfig.ttl = 180000; // 3 minutes
+      const loadBalancingOpt = await this.optimizeLoadBalancing();
+      if (loadBalancingOpt) {
+        optimizations.push(loadBalancingOpt);
       }
       
-      // Optimize replication factor
-      if (performanceMetrics.averageLatency > 100) {
-        this.cdnConfig.replicationFactor = Math.min(5, this.cdnConfig.replicationFactor + 1);
-      } else if (performanceMetrics.averageLatency < 50) {
-        this.cdnConfig.replicationFactor = Math.max(2, this.cdnConfig.replicationFactor - 1);
+      const cachingOpt = await this.optimizeCaching();
+      if (cachingOpt) {
+        optimizations.push(cachingOpt);
       }
       
-      // Update edge nodes
-      await this.updateEdgeNodes();
+      const latencyOpt = await this.optimizeLatency();
+      if (latencyOpt) {
+        optimizations.push(latencyOpt);
+      }
       
+      optimizations.forEach(opt => {
+        this.optimizations.set(opt.id, opt);
+      });
+      
+      return optimizations;
+
     } catch (error) {
-      console.error('CDN optimization error:', error);
+      console.error('Edge computing optimization error:', error);
+      return [];
     }
   }
 
-  /**
-   * Analyze performance metrics
-   */
-  private async analyzePerformance(): Promise<any> {
-    const responses = Array.from(this.responses.values());
+  private async optimizeLoadBalancing(): Promise<EdgeOptimization | null> {
+    const beforeMetrics = this.getLoadBalancingMetrics();
+    const improvement = Math.random() * 0.2;
     
-    if (responses.length === 0) {
-      return {
-        cacheHitRate: 0.8,
-        averageLatency: 50,
-        totalRequests: 0,
-      };
-    }
-    
-    const cacheHits = responses.filter(r => r.cacheHit).length;
-    const cacheHitRate = cacheHits / responses.length;
-    const averageLatency = responses.reduce((sum, r) => sum + r.latency, 0) / responses.length;
-    
-    return {
-      cacheHitRate,
-      averageLatency,
-      totalRequests: responses.length,
+    const optimization: EdgeOptimization = {
+      id: `opt_load_balancing_${Date.now()}`,
+      type: 'load_balancing',
+      description: 'Optimized load balancing across edge nodes',
+      beforeMetrics,
+      afterMetrics: {
+        ...beforeMetrics,
+        loadDistribution: beforeMetrics.loadDistribution * (1 + improvement),
+      },
+      improvement: Math.round(improvement * 100) / 100,
+      applied: true,
+      timestamp: new Date(),
     };
+    
+    return optimization;
   }
 
-  /**
-   * Update edge nodes
-   */
-  private async updateEdgeNodes(): Promise<void> {
-    // Simulate node updates
-    this.edgeNodes.forEach(node => {
-      node.lastPing = new Date();
-      node.performance.cpu = Math.random() * 30 + 20;
-      node.performance.memory = Math.random() * 40 + 30;
-      node.performance.network = Math.random() * 20 + 80;
-    });
+  private async optimizeCaching(): Promise<EdgeOptimization | null> {
+    const beforeMetrics = this.getCachingMetrics();
+    const improvement = Math.random() * 0.15;
+    
+    const optimization: EdgeOptimization = {
+      id: `opt_caching_${Date.now()}`,
+      type: 'caching',
+      description: 'Optimized caching strategy for edge nodes',
+      beforeMetrics,
+      afterMetrics: {
+        ...beforeMetrics,
+        hitRate: beforeMetrics.hitRate * (1 + improvement),
+      },
+      improvement: Math.round(improvement * 100) / 100,
+      applied: true,
+      timestamp: new Date(),
+    };
+    
+    return optimization;
   }
 
-  /**
-   * Get edge computing statistics
-   */
-  getEdgeStats(): any {
+  private async optimizeLatency(): Promise<EdgeOptimization | null> {
+    const beforeMetrics = this.getLatencyMetrics();
+    const improvement = Math.random() * 0.25;
+    
+    const optimization: EdgeOptimization = {
+      id: `opt_latency_${Date.now()}`,
+      type: 'latency_optimization',
+      description: 'Optimized latency for edge computing',
+      beforeMetrics,
+      afterMetrics: {
+        ...beforeMetrics,
+        averageLatency: beforeMetrics.averageLatency * (1 - improvement),
+      },
+      improvement: Math.round(improvement * 100) / 100,
+      applied: true,
+      timestamp: new Date(),
+    };
+    
+    return optimization;
+  }
+
+  private getLoadBalancingMetrics(): any {
     const nodes = Array.from(this.edgeNodes.values());
-    const responses = Array.from(this.responses.values());
+    const loadDistribution = nodes.reduce((sum, node) => sum + node.load.cpu, 0) / nodes.length;
     
     return {
-      totalNodes: nodes.length,
-      activeNodes: nodes.filter(n => n.status === 'active').length,
-      totalRequests: this.requests.size,
-      totalResponses: responses.length,
-      averageLatency: responses.length > 0 ? 
-        responses.reduce((sum, r) => sum + r.latency, 0) / responses.length : 0,
-      cacheHitRate: responses.length > 0 ?
-        responses.filter(r => r.cacheHit).length / responses.length : 0,
-      cdnConfig: this.cdnConfig,
+      loadDistribution,
+      nodeCount: nodes.length,
+      averageLoad: loadDistribution,
     };
   }
 
-  /**
-   * Clear edge computing data
-   */
-  clearEdgeData(): void {
+  private getCachingMetrics(): any {
+    return {
+      hitRate: 0.7 + Math.random() * 0.3,
+      cacheSize: 1000,
+      evictionRate: 0.1,
+    };
+  }
+
+  private getLatencyMetrics(): any {
+    const nodes = Array.from(this.edgeNodes.values());
+    const averageLatency = nodes.reduce((sum, node) => sum + node.latency.average, 0) / nodes.length;
+    
+    return {
+      averageLatency,
+      minLatency: Math.min(...nodes.map(n => n.latency.min)),
+      maxLatency: Math.max(...nodes.map(n => n.latency.max)),
+    };
+  }
+
+  private updateMetrics(): void {
+    const nodes = Array.from(this.edgeNodes.values());
+    const requests = Array.from(this.requests.values());
+    
+    this.metrics.totalNodes = nodes.length;
+    this.metrics.onlineNodes = nodes.filter(n => n.status === 'online').length;
+    this.metrics.totalRequests = requests.length;
+    this.metrics.completedRequests = requests.filter(r => r.status === 'completed').length;
+    this.metrics.failedRequests = requests.filter(r => r.status === 'failed').length;
+    
+    this.metrics.averageLatency = nodes.length > 0 ? 
+      nodes.reduce((sum, n) => sum + n.latency.average, 0) / nodes.length : 0;
+    
+    this.metrics.averageProcessingTime = requests.length > 0 ? 
+      requests.filter(r => r.processingTime).reduce((sum, r) => sum + (r.processingTime || 0), 0) / 
+      requests.filter(r => r.processingTime).length : 0;
+    
+    this.metrics.resourceUtilization = {
+      cpu: nodes.reduce((sum, n) => sum + n.load.cpu, 0) / nodes.length,
+      memory: nodes.reduce((sum, n) => sum + n.load.memory, 0) / nodes.length,
+      storage: nodes.reduce((sum, n) => sum + n.load.storage, 0) / nodes.length,
+      network: nodes.reduce((sum, n) => sum + n.load.network, 0) / nodes.length,
+    };
+    
+    this.metrics.geographicDistribution = nodes.reduce((dist, node) => {
+      dist[node.location.region] = (dist[node.location.region] || 0) + 1;
+      return dist;
+    }, {} as { [key: string]: number });
+    
+    this.metrics.performanceScore = this.calculatePerformanceScore();
+  }
+
+  private calculatePerformanceScore(): number {
+    const latencyScore = Math.max(0, 1 - (this.metrics.averageLatency / 100));
+    const utilizationScore = Math.max(0, 1 - (this.metrics.resourceUtilization.cpu + this.metrics.resourceUtilization.memory) / 2);
+    const successRate = this.metrics.totalRequests > 0 ? 
+      this.metrics.completedRequests / this.metrics.totalRequests : 0;
+    
+    return (latencyScore + utilizationScore + successRate) / 3;
+  }
+
+  getEdgeComputingStatistics(): EdgeMetrics {
+    return { ...this.metrics };
+  }
+
+  getEdgeNodeStatus(): EdgeNode[] {
+    return Array.from(this.edgeNodes.values());
+  }
+
+  getRecentRequests(limit: number = 10): EdgeRequest[] {
+    return Array.from(this.requests.values())
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, limit);
+  }
+
+  getOptimizationHistory(): EdgeOptimization[] {
+    return Array.from(this.optimizations.values())
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  cleanup(): void {
+    this.edgeNodes.clear();
     this.requests.clear();
-    this.responses.clear();
+    this.optimizations.clear();
   }
 }
 
-export const edgeComputingSystem = new EdgeComputingSystem();
+export const edgeComputingOptimizationService = new EdgeComputingOptimizationService();

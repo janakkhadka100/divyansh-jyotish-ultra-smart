@@ -703,3 +703,5 @@ const SmartChatInterface: React.FC<SmartChatInterfaceProps> = ({
 };
 
 export default SmartChatInterface;
+
+

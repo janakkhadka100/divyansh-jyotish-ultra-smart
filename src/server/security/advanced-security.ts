@@ -1,787 +1,420 @@
-import { prisma } from '@/server/lib/prisma';
 import { analyticsService } from '@/server/services/analytics';
-import crypto from 'crypto';
 
 interface SecurityThreat {
   id: string;
-  type: 'sql_injection' | 'xss' | 'csrf' | 'brute_force' | 'ddos' | 'malware' | 'phishing' | 'unauthorized_access';
+  type: 'brute_force' | 'sql_injection' | 'xss' | 'csrf' | 'ddos' | 'malware' | 'phishing' | 'data_breach';
   severity: 'low' | 'medium' | 'high' | 'critical';
   source: string;
   target: string;
-  description: string;
   timestamp: Date;
-  blocked: boolean;
-  action: string;
+  description: string;
+  status: 'detected' | 'investigating' | 'mitigated' | 'resolved';
+  metadata: any;
+}
+
+interface SecurityEvent {
+  id: string;
+  type: 'login_attempt' | 'api_call' | 'file_upload' | 'data_access' | 'system_change';
+  userId?: string;
+  ip: string;
+  userAgent: string;
+  timestamp: Date;
+  success: boolean;
   metadata: any;
 }
 
 interface SecurityPolicy {
   id: string;
   name: string;
-  type: 'access_control' | 'data_protection' | 'network_security' | 'authentication' | 'authorization';
-  rules: SecurityRule[];
+  type: 'access_control' | 'rate_limiting' | 'data_encryption' | 'audit_logging';
+  rules: any;
   enabled: boolean;
-  priority: number;
-  lastUpdated: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-interface SecurityRule {
-  id: string;
-  condition: string;
-  action: 'allow' | 'deny' | 'block' | 'alert' | 'log';
-  parameters: any;
-  enabled: boolean;
-}
-
-interface SecurityAudit {
-  id: string;
-  type: 'access' | 'data' | 'network' | 'authentication' | 'authorization';
-  userId?: string;
-  sessionId?: string;
-  action: string;
-  resource: string;
-  result: 'success' | 'failure' | 'blocked';
-  timestamp: Date;
-  ipAddress: string;
-  userAgent: string;
-  metadata: any;
-}
-
-interface SecurityMetrics {
-  totalThreats: number;
-  blockedThreats: number;
-  activePolicies: number;
-  securityScore: number;
-  lastAudit: Date;
-  threatTypes: Record<string, number>;
-  topSources: string[];
-  topTargets: string[];
-}
-
-interface EncryptionKey {
-  id: string;
-  name: string;
-  algorithm: 'aes-256-gcm' | 'aes-128-gcm' | 'chacha20-poly1305';
-  key: Buffer;
-  iv: Buffer;
-  created: Date;
-  expires?: Date;
-  active: boolean;
-}
-
-class AdvancedSecuritySystem {
+class AdvancedSecurityService {
   private threats: Map<string, SecurityThreat>;
+  private events: Map<string, SecurityEvent>;
   private policies: Map<string, SecurityPolicy>;
-  private audits: Map<string, SecurityAudit>;
-  private encryptionKeys: Map<string, EncryptionKey>;
   private blockedIPs: Set<string>;
   private suspiciousUsers: Set<string>;
-  private rateLimits: Map<string, { count: number; resetTime: number }>;
-  private securityMetrics: SecurityMetrics;
 
   constructor() {
     this.threats = new Map();
+    this.events = new Map();
     this.policies = new Map();
-    this.audits = new Map();
-    this.encryptionKeys = new Map();
     this.blockedIPs = new Set();
     this.suspiciousUsers = new Set();
-    this.rateLimits = new Map();
-    this.securityMetrics = this.initializeSecurityMetrics();
     
-    this.initializeSecurityPolicies();
-    this.initializeEncryptionKeys();
-    this.startSecurityMonitoring();
+    this.initializeDefaultPolicies();
   }
 
-  /**
-   * Detect and block security threats
-   */
-  async detectThreat(
-    type: SecurityThreat['type'],
-    source: string,
-    target: string,
-    description: string,
-    metadata: any = {}
-  ): Promise<SecurityThreat> {
+  private initializeDefaultPolicies(): void {
+    const defaultPolicies: SecurityPolicy[] = [
+      {
+        id: 'rate_limiting_policy',
+        name: 'Rate Limiting Policy',
+        type: 'rate_limiting',
+        rules: {
+          maxRequestsPerMinute: 60,
+          maxRequestsPerHour: 1000,
+          maxLoginAttempts: 5,
+          lockoutDuration: 15 * 60 * 1000, // 15 minutes
+        },
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'access_control_policy',
+        name: 'Access Control Policy',
+        type: 'access_control',
+        rules: {
+          requireAuthentication: true,
+          requireAuthorization: true,
+          allowedOrigins: ['*'],
+          blockedCountries: [],
+        },
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'data_encryption_policy',
+        name: 'Data Encryption Policy',
+        type: 'data_encryption',
+        rules: {
+          encryptSensitiveData: true,
+          encryptionAlgorithm: 'AES-256',
+          keyRotationInterval: 30 * 24 * 60 * 60 * 1000, // 30 days
+        },
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 'audit_logging_policy',
+        name: 'Audit Logging Policy',
+        type: 'audit_logging',
+        rules: {
+          logAllEvents: true,
+          logSensitiveData: false,
+          retentionPeriod: 365 * 24 * 60 * 60 * 1000, // 1 year
+        },
+        enabled: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    defaultPolicies.forEach(policy => {
+      this.policies.set(policy.id, policy);
+    });
+  }
+
+  async logSecurityEvent(event: Omit<SecurityEvent, 'id' | 'timestamp'>): Promise<void> {
     try {
-      const threat: SecurityThreat = {
-        id: `threat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type,
-        severity: this.calculateThreatSeverity(type, metadata),
-        source,
-        target,
-        description,
+      const securityEvent: SecurityEvent = {
+        ...event,
+        id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date(),
-        blocked: false,
-        action: 'detected',
-        metadata,
       };
 
-      // Apply security policies
-      const policy = await this.applySecurityPolicies(threat);
-      threat.blocked = policy.blocked;
-      threat.action = policy.action;
+      this.events.set(securityEvent.id, securityEvent);
 
-      // Block if necessary
-      if (threat.blocked) {
-        await this.blockThreat(threat);
-      }
+      await this.analyzeSecurityEvent(securityEvent);
 
-      this.threats.set(threat.id, threat);
-
-      // Track threat detection
       await analyticsService.trackEvent({
-        type: 'security',
-        category: 'threat_detection',
-        action: 'threat_detected',
+        type: 'security_event',
+        category: 'security',
+        action: event.type,
+        userId: event.userId,
         metadata: {
-          threatId: threat.id,
-          type: threat.type,
-          severity: threat.severity,
-          blocked: threat.blocked,
+          ip: event.ip,
+          userAgent: event.userAgent,
+          success: event.success,
+          ...event.metadata,
         },
-        success: true,
+        success: event.success,
         duration: 0,
       });
 
-      return threat;
     } catch (error) {
-      console.error('Threat detection error:', error);
-      throw error;
+      console.error('Security event logging error:', error);
     }
   }
 
-  /**
-   * Encrypt sensitive data
-   */
-  async encryptData(
-    data: string,
-    keyName: string = 'default'
-  ): Promise<{ encrypted: string; keyId: string; iv: string }> {
-    try {
-      const key = this.encryptionKeys.get(keyName);
-      if (!key || !key.active) {
-        throw new Error('Encryption key not found or inactive');
-      }
-
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipher(key.algorithm, key.key);
-      
-      let encrypted = cipher.update(data, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-
-      return {
-        encrypted,
-        keyId: key.id,
-        iv: iv.toString('hex'),
-      };
-    } catch (error) {
-      console.error('Data encryption error:', error);
-      throw error;
-    }
+  private async analyzeSecurityEvent(event: SecurityEvent): Promise<void> {
+    await this.detectThreats(event);
+    await this.applySecurityPolicies(event);
   }
 
-  /**
-   * Decrypt sensitive data
-   */
-  async decryptData(
-    encryptedData: string,
-    keyId: string,
-    iv: string
-  ): Promise<string> {
-    try {
-      const key = this.encryptionKeys.get(keyId);
-      if (!key || !key.active) {
-        throw new Error('Decryption key not found or inactive');
-      }
-
-      const decipher = crypto.createDecipher(key.algorithm, key.key);
-      
-      let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-
-      return decrypted;
-    } catch (error) {
-      console.error('Data decryption error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Audit security event
-   */
-  async auditSecurityEvent(
-    type: SecurityAudit['type'],
-    action: string,
-    resource: string,
-    result: 'success' | 'failure' | 'blocked',
-    userId?: string,
-    sessionId?: string,
-    ipAddress: string = 'unknown',
-    userAgent: string = 'unknown',
-    metadata: any = {}
-  ): Promise<SecurityAudit> {
-    try {
-      const audit: SecurityAudit = {
-        id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type,
-        userId,
-        sessionId,
-        action,
-        resource,
-        result,
+  private async detectThreats(event: SecurityEvent): Promise<void> {
+    const threats = this.analyzeEventForThreats(event);
+    
+    for (const threat of threats) {
+      const securityThreat: SecurityThreat = {
+        id: `threat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: threat.type,
+        severity: threat.severity,
+        source: event.ip,
+        target: event.target || 'unknown',
         timestamp: new Date(),
-        ipAddress,
-        userAgent,
-        metadata,
+        description: threat.description,
+        status: 'detected',
+        metadata: threat.metadata,
       };
-
-      this.audits.set(audit.id, audit);
-
-      // Check for suspicious patterns
-      await this.checkSuspiciousPatterns(audit);
-
-      // Update security metrics
-      this.updateSecurityMetrics();
-
-      return audit;
-    } catch (error) {
-      console.error('Security audit error:', error);
-      throw error;
+      
+      this.threats.set(securityThreat.id, securityThreat);
+      
+      await this.mitigateThreat(securityThreat);
     }
   }
 
-  /**
-   * Validate input for security threats
-   */
-  async validateInput(
-    input: string,
-    type: 'sql' | 'xss' | 'csrf' | 'general' = 'general'
-  ): Promise<{ valid: boolean; threats: string[] }> {
-    try {
-      const threats: string[] = [];
-
-      // SQL Injection detection
-      if (type === 'sql' || type === 'general') {
-        const sqlPatterns = [
-          /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/i,
-          /(;|\-\-|\/\*|\*\/)/,
-          /(\b(OR|AND)\b.*\b(OR|AND)\b)/i,
-        ];
-        
-        for (const pattern of sqlPatterns) {
-          if (pattern.test(input)) {
-            threats.push('sql_injection');
-            break;
-          }
-        }
+  private analyzeEventForThreats(event: SecurityEvent): Array<{
+    type: SecurityThreat['type'];
+    severity: SecurityThreat['severity'];
+    description: string;
+    metadata: any;
+  }> {
+    const threats: Array<{
+      type: SecurityThreat['type'];
+      severity: SecurityThreat['severity'];
+      description: string;
+      metadata: any;
+    }> = [];
+    
+    if (event.type === 'login_attempt' && !event.success) {
+      const failedAttempts = Array.from(this.events.values())
+        .filter(e => e.type === 'login_attempt' && e.ip === event.ip && !e.success)
+        .length;
+      
+      if (failedAttempts >= 5) {
+        threats.push({
+          type: 'brute_force',
+          severity: 'high',
+          description: `Brute force attack detected from IP ${event.ip}`,
+          metadata: { failedAttempts, ip: event.ip },
+        });
       }
-
-      // XSS detection
-      if (type === 'xss' || type === 'general') {
-        const xssPatterns = [
-          /<script[^>]*>.*?<\/script>/gi,
-          /<iframe[^>]*>.*?<\/iframe>/gi,
-          /javascript:/gi,
-          /on\w+\s*=/gi,
-        ];
-        
-        for (const pattern of xssPatterns) {
-          if (pattern.test(input)) {
-            threats.push('xss');
-            break;
-          }
-        }
-      }
-
-      // CSRF detection
-      if (type === 'csrf' || type === 'general') {
-        if (input.includes('csrf') || input.includes('token')) {
-          threats.push('csrf');
-        }
-      }
-
-      return {
-        valid: threats.length === 0,
-        threats,
-      };
-    } catch (error) {
-      console.error('Input validation error:', error);
-      return { valid: false, threats: ['validation_error'] };
     }
+    
+    if (event.type === 'api_call' && event.metadata?.query) {
+      const query = event.metadata.query.toLowerCase();
+      if (query.includes('drop table') || query.includes('delete from') || query.includes('union select')) {
+        threats.push({
+          type: 'sql_injection',
+          severity: 'critical',
+          description: `SQL injection attempt detected from IP ${event.ip}`,
+          metadata: { query: event.metadata.query, ip: event.ip },
+        });
+      }
+    }
+    
+    if (event.type === 'file_upload' && event.metadata?.filename) {
+      const filename = event.metadata.filename.toLowerCase();
+      if (filename.endsWith('.exe') || filename.endsWith('.bat') || filename.endsWith('.cmd')) {
+        threats.push({
+          type: 'malware',
+          severity: 'high',
+          description: `Potential malware upload detected from IP ${event.ip}`,
+          metadata: { filename: event.metadata.filename, ip: event.ip },
+        });
+      }
+    }
+    
+    return threats;
   }
 
-  /**
-   * Rate limit requests
-   */
-  async rateLimit(
-    identifier: string,
-    limit: number = 100,
-    windowMs: number = 60000
-  ): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
-    try {
-      const now = Date.now();
-      const key = `${identifier}_${Math.floor(now / windowMs)}`;
-      
-      const current = this.rateLimits.get(key) || { count: 0, resetTime: now + windowMs };
-      
-      if (now > current.resetTime) {
-        current.count = 0;
-        current.resetTime = now + windowMs;
-      }
-      
-      current.count++;
-      this.rateLimits.set(key, current);
-      
-      const allowed = current.count <= limit;
-      const remaining = Math.max(0, limit - current.count);
-      
-      if (!allowed) {
-        // Block the IP if rate limit exceeded
-        this.blockedIPs.add(identifier);
-        
-        // Detect as brute force attack
-        await this.detectThreat(
-          'brute_force',
-          identifier,
-          'rate_limit_exceeded',
-          'Rate limit exceeded',
-          { limit, windowMs, count: current.count }
-        );
-      }
-      
-      return {
-        allowed,
-        remaining,
-        resetTime: current.resetTime,
-      };
-    } catch (error) {
-      console.error('Rate limiting error:', error);
-      return { allowed: false, remaining: 0, resetTime: Date.now() + 60000 };
+  private async mitigateThreat(threat: SecurityThreat): Promise<void> {
+    switch (threat.type) {
+      case 'brute_force':
+        this.blockedIPs.add(threat.source);
+        threat.status = 'mitigated';
+        break;
+      case 'sql_injection':
+        this.blockedIPs.add(threat.source);
+        threat.status = 'mitigated';
+        break;
+      case 'malware':
+        this.blockedIPs.add(threat.source);
+        threat.status = 'mitigated';
+        break;
+      default:
+        threat.status = 'investigating';
     }
+    
+    await analyticsService.trackEvent({
+      type: 'security_threat',
+      category: 'security',
+      action: 'threat_mitigated',
+      metadata: {
+        threatId: threat.id,
+        type: threat.type,
+        severity: threat.severity,
+        source: threat.source,
+        status: threat.status,
+      },
+      success: threat.status === 'mitigated',
+      duration: 0,
+    });
   }
 
-  /**
-   * Generate secure token
-   */
-  async generateSecureToken(
-    length: number = 32,
-    type: 'alphanumeric' | 'hex' | 'base64' = 'alphanumeric'
-  ): Promise<string> {
-    try {
-      let token: string;
-      
-      switch (type) {
-        case 'hex':
-          token = crypto.randomBytes(length).toString('hex');
+  private async applySecurityPolicies(event: SecurityEvent): Promise<void> {
+    const policies = Array.from(this.policies.values()).filter(p => p.enabled);
+    
+    for (const policy of policies) {
+      switch (policy.type) {
+        case 'rate_limiting':
+          await this.applyRateLimitingPolicy(event, policy);
           break;
-        case 'base64':
-          token = crypto.randomBytes(length).toString('base64');
+        case 'access_control':
+          await this.applyAccessControlPolicy(event, policy);
           break;
-        default:
-          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-          token = Array.from(crypto.randomBytes(length))
-            .map(byte => chars[byte % chars.length])
-            .join('');
+        case 'data_encryption':
+          await this.applyDataEncryptionPolicy(event, policy);
+          break;
+        case 'audit_logging':
+          await this.applyAuditLoggingPolicy(event, policy);
+          break;
       }
-      
-      return token;
-    } catch (error) {
-      console.error('Token generation error:', error);
-      throw error;
     }
   }
 
-  /**
-   * Hash password securely
-   */
-  async hashPassword(password: string): Promise<{ hash: string; salt: string }> {
-    try {
-      const salt = crypto.randomBytes(32).toString('hex');
-      const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-      
-      return { hash, salt };
-    } catch (error) {
-      console.error('Password hashing error:', error);
-      throw error;
+  private async applyRateLimitingPolicy(event: SecurityEvent, policy: SecurityPolicy): Promise<void> {
+    const rules = policy.rules;
+    const recentEvents = Array.from(this.events.values())
+      .filter(e => e.ip === event.ip && (Date.now() - e.timestamp.getTime()) < 60000); // Last minute
+    
+    if (recentEvents.length > rules.maxRequestsPerMinute) {
+      this.blockedIPs.add(event.ip);
+      await this.logSecurityEvent({
+        type: 'rate_limit_exceeded',
+        ip: event.ip,
+        userAgent: event.userAgent,
+        success: false,
+        metadata: { policy: policy.name, limit: rules.maxRequestsPerMinute },
+      });
     }
   }
 
-  /**
-   * Verify password
-   */
-  async verifyPassword(
-    password: string,
-    hash: string,
-    salt: string
-  ): Promise<boolean> {
-    try {
-      const testHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-      return hash === testHash;
-    } catch (error) {
-      console.error('Password verification error:', error);
-      return false;
+  private async applyAccessControlPolicy(event: SecurityEvent, policy: SecurityPolicy): Promise<void> {
+    const rules = policy.rules;
+    
+    if (rules.requireAuthentication && !event.userId) {
+      await this.logSecurityEvent({
+        type: 'unauthorized_access',
+        ip: event.ip,
+        userAgent: event.userAgent,
+        success: false,
+        metadata: { policy: policy.name, reason: 'authentication_required' },
+      });
     }
   }
 
-  /**
-   * Get security metrics
-   */
-  getSecurityMetrics(): SecurityMetrics {
-    return this.securityMetrics;
+  private async applyDataEncryptionPolicy(event: SecurityEvent, policy: SecurityPolicy): Promise<void> {
+    // Data encryption is typically applied at the data layer
+    // This is a placeholder for policy enforcement
+    console.log('Applying data encryption policy:', policy.name);
   }
 
-  /**
-   * Get security threats
-   */
-  getSecurityThreats(limit: number = 100): SecurityThreat[] {
+  private async applyAuditLoggingPolicy(event: SecurityEvent, policy: SecurityPolicy): Promise<void> {
+    // Audit logging is handled by the logSecurityEvent method
+    // This is a placeholder for policy enforcement
+    console.log('Applying audit logging policy:', policy.name);
+  }
+
+  async createSecurityPolicy(policy: Omit<SecurityPolicy, 'id' | 'createdAt' | 'updatedAt'>): Promise<SecurityPolicy> {
+    const securityPolicy: SecurityPolicy = {
+      ...policy,
+      id: `policy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.policies.set(securityPolicy.id, securityPolicy);
+    
+    return securityPolicy;
+  }
+
+  async updateSecurityPolicy(policyId: string, updates: Partial<SecurityPolicy>): Promise<SecurityPolicy | null> {
+    const policy = this.policies.get(policyId);
+    if (!policy) {
+      return null;
+    }
+    
+    const updatedPolicy = {
+      ...policy,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    
+    this.policies.set(policyId, updatedPolicy);
+    
+    return updatedPolicy;
+  }
+
+  getSecurityStatistics(): any {
+    const threats = Array.from(this.threats.values());
+    const events = Array.from(this.events.values());
+    const policies = Array.from(this.policies.values());
+    
+    const threatCounts = threats.reduce((acc, threat) => {
+      acc[threat.type] = (acc[threat.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const severityCounts = threats.reduce((acc, threat) => {
+      acc[threat.severity] = (acc[threat.severity] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return {
+      totalThreats: threats.length,
+      totalEvents: events.length,
+      totalPolicies: policies.length,
+      activePolicies: policies.filter(p => p.enabled).length,
+      blockedIPs: this.blockedIPs.size,
+      suspiciousUsers: this.suspiciousUsers.size,
+      threatCounts,
+      severityCounts,
+      recentThreats: threats.slice(-10),
+      recentEvents: events.slice(-20),
+    };
+  }
+
+  getThreats(limit: number = 50): SecurityThreat[] {
     return Array.from(this.threats.values())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
 
-  /**
-   * Get security audits
-   */
-  getSecurityAudits(limit: number = 100): SecurityAudit[] {
-    return Array.from(this.audits.values())
+  getEvents(limit: number = 100): SecurityEvent[] {
+    return Array.from(this.events.values())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, limit);
   }
 
-  /**
-   * Calculate threat severity
-   */
-  private calculateThreatSeverity(type: SecurityThreat['type'], metadata: any): 'low' | 'medium' | 'high' | 'critical' {
-    const severityMap: Record<SecurityThreat['type'], 'low' | 'medium' | 'high' | 'critical'> = {
-      'sql_injection': 'critical',
-      'xss': 'high',
-      'csrf': 'medium',
-      'brute_force': 'high',
-      'ddos': 'critical',
-      'malware': 'critical',
-      'phishing': 'high',
-      'unauthorized_access': 'high',
-    };
-    
-    return severityMap[type] || 'medium';
+  getPolicies(): SecurityPolicy[] {
+    return Array.from(this.policies.values());
   }
 
-  /**
-   * Apply security policies
-   */
-  private async applySecurityPolicies(threat: SecurityThreat): Promise<{ blocked: boolean; action: string }> {
-    const policies = Array.from(this.policies.values())
-      .filter(policy => policy.enabled)
-      .sort((a, b) => b.priority - a.priority);
-    
-    for (const policy of policies) {
-      for (const rule of policy.rules) {
-        if (rule.enabled && this.evaluateRule(rule, threat)) {
-          return {
-            blocked: rule.action === 'deny' || rule.action === 'block',
-            action: rule.action,
-          };
-        }
-      }
-    }
-    
-    return { blocked: false, action: 'allow' };
+  isIPBlocked(ip: string): boolean {
+    return this.blockedIPs.has(ip);
   }
 
-  /**
-   * Evaluate security rule
-   */
-  private evaluateRule(rule: SecurityRule, threat: SecurityThreat): boolean {
-    try {
-      const condition = rule.condition.toLowerCase();
-      
-      if (condition.includes('threat_type') && condition.includes('==')) {
-        const expectedType = condition.split('==')[1].trim().replace(/['"]/g, '');
-        return threat.type === expectedType;
-      }
-      
-      if (condition.includes('severity') && condition.includes('>=')) {
-        const severityLevels = { low: 1, medium: 2, high: 3, critical: 4 };
-        const threshold = condition.split('>=')[1].trim();
-        return severityLevels[threat.severity] >= severityLevels[threshold as keyof typeof severityLevels];
-      }
-      
-      if (condition.includes('source') && condition.includes('contains')) {
-        const expectedSource = condition.split('contains')[1].trim().replace(/['"]/g, '');
-        return threat.source.includes(expectedSource);
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Rule evaluation error:', error);
-      return false;
-    }
+  isUserSuspicious(userId: string): boolean {
+    return this.suspiciousUsers.has(userId);
   }
 
-  /**
-   * Block threat
-   */
-  private async blockThreat(threat: SecurityThreat): Promise<void> {
-    try {
-      // Block IP address
-      this.blockedIPs.add(threat.source);
-      
-      // Add to suspicious users if applicable
-      if (threat.metadata.userId) {
-        this.suspiciousUsers.add(threat.metadata.userId);
-      }
-      
-      // Log blocking action
-      await this.auditSecurityEvent(
-        'access',
-        'block_threat',
-        threat.target,
-        'blocked',
-        threat.metadata.userId,
-        threat.metadata.sessionId,
-        threat.source,
-        threat.metadata.userAgent,
-        { threatId: threat.id, reason: 'security_policy' }
-      );
-    } catch (error) {
-      console.error('Threat blocking error:', error);
-    }
-  }
-
-  /**
-   * Check suspicious patterns
-   */
-  private async checkSuspiciousPatterns(audit: SecurityAudit): Promise<void> {
-    try {
-      // Check for multiple failed attempts
-      const recentFailures = Array.from(this.audits.values())
-        .filter(a => a.result === 'failure' && 
-                     a.timestamp > new Date(Date.now() - 300000) && // Last 5 minutes
-                     a.ipAddress === audit.ipAddress)
-        .length;
-      
-      if (recentFailures > 5) {
-        await this.detectThreat(
-          'brute_force',
-          audit.ipAddress,
-          audit.resource,
-          'Multiple failed attempts detected',
-          { failures: recentFailures, userId: audit.userId }
-        );
-      }
-      
-      // Check for unusual access patterns
-      if (audit.type === 'access' && audit.result === 'success') {
-        const recentAccess = Array.from(this.audits.values())
-          .filter(a => a.type === 'access' && 
-                       a.timestamp > new Date(Date.now() - 60000) && // Last minute
-                       a.ipAddress === audit.ipAddress)
-          .length;
-        
-        if (recentAccess > 20) {
-          await this.detectThreat(
-            'ddos',
-            audit.ipAddress,
-            audit.resource,
-            'Unusual access pattern detected',
-            { accesses: recentAccess }
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Suspicious pattern detection error:', error);
-    }
-  }
-
-  /**
-   * Update security metrics
-   */
-  private updateSecurityMetrics(): void {
-    const totalThreats = this.threats.size;
-    const blockedThreats = Array.from(this.threats.values()).filter(t => t.blocked).length;
-    const activePolicies = Array.from(this.policies.values()).filter(p => p.enabled).length;
-    
-    const threatTypes: Record<string, number> = {};
-    Array.from(this.threats.values()).forEach(threat => {
-      threatTypes[threat.type] = (threatTypes[threat.type] || 0) + 1;
-    });
-    
-    const topSources = Array.from(this.threats.values())
-      .reduce((acc, threat) => {
-        acc[threat.source] = (acc[threat.source] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-    
-    const topTargets = Array.from(this.threats.values())
-      .reduce((acc, threat) => {
-        acc[threat.target] = (acc[threat.target] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-    
-    this.securityMetrics = {
-      totalThreats,
-      blockedThreats,
-      activePolicies,
-      securityScore: this.calculateSecurityScore(),
-      lastAudit: new Date(),
-      threatTypes,
-      topSources: Object.keys(topSources).sort((a, b) => topSources[b] - topSources[a]).slice(0, 10),
-      topTargets: Object.keys(topTargets).sort((a, b) => topTargets[b] - topTargets[a]).slice(0, 10),
-    };
-  }
-
-  /**
-   * Calculate security score
-   */
-  private calculateSecurityScore(): number {
-    const totalThreats = this.threats.size;
-    const blockedThreats = Array.from(this.threats.values()).filter(t => t.blocked).length;
-    const activePolicies = Array.from(this.policies.values()).filter(p => p.enabled).length;
-    
-    if (totalThreats === 0) return 100;
-    
-    const blockRate = blockedThreats / totalThreats;
-    const policyScore = Math.min(100, activePolicies * 10);
-    const threatScore = Math.max(0, 100 - (totalThreats * 2));
-    
-    return Math.round((blockRate * 40) + (policyScore * 0.3) + (threatScore * 0.3));
-  }
-
-  /**
-   * Initialize security policies
-   */
-  private initializeSecurityPolicies(): void {
-    const policies = [
-      {
-        id: 'sql_injection_policy',
-        name: 'SQL Injection Protection',
-        type: 'data_protection' as const,
-        rules: [
-          {
-            id: 'block_sql_injection',
-            condition: 'threat_type == "sql_injection"',
-            action: 'block' as const,
-            parameters: {},
-            enabled: true,
-          },
-        ],
-        enabled: true,
-        priority: 10,
-        lastUpdated: new Date(),
-      },
-      {
-        id: 'xss_protection_policy',
-        name: 'XSS Protection',
-        type: 'data_protection' as const,
-        rules: [
-          {
-            id: 'block_xss',
-            condition: 'threat_type == "xss"',
-            action: 'block' as const,
-            parameters: {},
-            enabled: true,
-          },
-        ],
-        enabled: true,
-        priority: 9,
-        lastUpdated: new Date(),
-      },
-      {
-        id: 'brute_force_protection_policy',
-        name: 'Brute Force Protection',
-        type: 'access_control' as const,
-        rules: [
-          {
-            id: 'block_brute_force',
-            condition: 'threat_type == "brute_force"',
-            action: 'block' as const,
-            parameters: {},
-            enabled: true,
-          },
-        ],
-        enabled: true,
-        priority: 8,
-        lastUpdated: new Date(),
-      },
-    ];
-    
-    policies.forEach(policy => {
-      this.policies.set(policy.id, policy);
-    });
-  }
-
-  /**
-   * Initialize encryption keys
-   */
-  private initializeEncryptionKeys(): void {
-    const defaultKey: EncryptionKey = {
-      id: 'default',
-      name: 'Default Encryption Key',
-      algorithm: 'aes-256-gcm',
-      key: crypto.randomBytes(32),
-      iv: crypto.randomBytes(16),
-      created: new Date(),
-      active: true,
-    };
-    
-    this.encryptionKeys.set('default', defaultKey);
-  }
-
-  /**
-   * Start security monitoring
-   */
-  private startSecurityMonitoring(): void {
-    setInterval(() => {
-      this.cleanupOldData();
-    }, 300000); // Clean up every 5 minutes
-  }
-
-  /**
-   * Clean up old data
-   */
-  private cleanupOldData(): void {
-    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-    
-    // Clean up old threats
-    for (const [key, threat] of this.threats.entries()) {
-      if (threat.timestamp < cutoffTime) {
-        this.threats.delete(key);
-      }
-    }
-    
-    // Clean up old audits
-    for (const [key, audit] of this.audits.entries()) {
-      if (audit.timestamp < cutoffTime) {
-        this.audits.delete(key);
-      }
-    }
-    
-    // Clean up old rate limits
-    const now = Date.now();
-    for (const [key, rateLimit] of this.rateLimits.entries()) {
-      if (now > rateLimit.resetTime) {
-        this.rateLimits.delete(key);
-      }
-    }
-  }
-
-  /**
-   * Initialize security metrics
-   */
-  private initializeSecurityMetrics(): SecurityMetrics {
-    return {
-      totalThreats: 0,
-      blockedThreats: 0,
-      activePolicies: 0,
-      securityScore: 100,
-      lastAudit: new Date(),
-      threatTypes: {},
-      topSources: [],
-      topTargets: [],
-    };
+  cleanup(): void {
+    this.threats.clear();
+    this.events.clear();
+    this.policies.clear();
+    this.blockedIPs.clear();
+    this.suspiciousUsers.clear();
   }
 }
 
-export const advancedSecuritySystem = new AdvancedSecuritySystem();
+export const advancedSecurityService = new AdvancedSecurityService();

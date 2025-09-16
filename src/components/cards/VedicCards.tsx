@@ -261,3 +261,5 @@ const renderCardContent = (data: any, language: 'ne' | 'hi' | 'en') => {
 };
 
 export default VedicCard;
+
+
