@@ -605,16 +605,19 @@ export class ProkeralaEnhancedService {
     const mockData = {
       kundli: {
         ascendant: {
+          sign: 'मेष',
           signName: 'मेष',
           degree: 15.5,
           nakshatraName: 'अश्विनी'
         },
         moonSign: {
+          sign: 'कर्क',
           signName: 'कर्क',
           degree: 8.2,
           nakshatraName: 'पुनर्वसु'
         },
         sunSign: {
+          sign: 'धनु',
           signName: 'धनु',
           degree: 22.8,
           nakshatraName: 'पूर्वाषाढा'
@@ -637,6 +640,9 @@ export class ProkeralaEnhancedService {
         ]
       },
       dasha: {
+        currentDasha: 'चन्द्र महादशा',
+        antardasha: 'मंगल अन्तर्दशा',
+        pratyantardasha: 'सूर्य प्रत्यन्तर्दशा',
         currentPeriod: {
           vimshottari: 'चन्द्र महादशा',
           antardasha: 'मंगल अन्तर्दशा',
