@@ -193,6 +193,10 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
 कृपया उपर दिइएको ज्योतिषीय डाटा प्रयोग गरेर specific उत्तर दिनुहोस्।`;
     }
 
+    // Try OpenAI API with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
     const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4',
       messages: [
@@ -211,7 +215,11 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
       temperature: 0.3,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
+    }, {
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     return {
       message: response.choices[0]?.message?.content || 'माफ गर्नुहोस्, मैले उत्तर दिन सकिन।',
@@ -223,6 +231,18 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
   } catch (error) {
     console.error('OpenAI API error:', error);
     
+    // If timeout or API error, provide fallback response with astrological data
+    if (astrologicalData) {
+      const fallbackResponse = generateFallbackResponse(message, astrologicalData);
+      return {
+        message: fallbackResponse,
+        timestamp: new Date().toISOString(),
+        type: 'ai',
+        questionType,
+        contextualResponse: 'ज्योतिषीय डाटा आधारित उत्तर।'
+      };
+    }
+    
     // Fallback response if API fails
     return {
       message: 'माफ गर्नुहोस्, अहिले AI सेवा उपलब्ध छैन। कृपया केही समय पछि फेरि प्रयास गर्नुहोस्।',
@@ -232,6 +252,39 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
       contextualResponse: 'सेवा अस्थायी रूपमा उपलब्ध छैन।'
     };
   }
+}
+
+function generateFallbackResponse(message: string, astrologicalData: any): string {
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes('दशा') || lowerMessage.includes('dasha')) {
+    return `तपाईंको वर्तमान दशा ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'} हो र त्यसको अन्तर्दशा ${astrologicalData.dasha?.antardasha || 'मंगल अन्तर्दशा'} हो। यो दशा तपाईंको जीवनमा विशेष प्रभाव पार्छ।`;
+  }
+  
+  if (lowerMessage.includes('करियर') || lowerMessage.includes('career') || lowerMessage.includes('काम')) {
+    return `तपाईंको लग्न ${astrologicalData.kundli?.ascendant?.sign || 'मेष'} राशिमा छ र चन्द्र राशि ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} मा छ। यसका आधारमा तपाईंको करियरमा सफलता पाउनुहुनेछ।`;
+  }
+  
+  if (lowerMessage.includes('कुण्डली') || lowerMessage.includes('kundli') || lowerMessage.includes('जन्मकुण्डली')) {
+    return `तपाईंको कुण्डली अनुसार:
+- लग्न: ${astrologicalData.kundli?.ascendant?.sign || 'मेष'}
+- चन्द्र राशि: ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'}
+- सूर्य राशि: ${astrologicalData.kundli?.sunSign?.sign || 'धनु'}
+- वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'}
+
+यी सबै तत्वहरू तपाईंको जीवनमा महत्वपूर्ण भूमिका खेल्छन्।`;
+  }
+  
+  if (lowerMessage.includes('प्रेम') || lowerMessage.includes('love') || lowerMessage.includes('विवाह')) {
+    return `तपाईंको चन्द्र राशि ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} मा छ जसले तपाईंको भावनात्मक जीवनमा प्रभाव पार्छ। वर्तमान दशा ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'} मा प्रेम सम्बन्धहरूमा सकारात्मक परिवर्तन आउन सक्छ।`;
+  }
+  
+  return `तपाईंको ज्योतिषीय डाटा अनुसार:
+- लग्न: ${astrologicalData.kundli?.ascendant?.sign || 'मेष'}
+- चन्द्र राशि: ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'}
+- वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'}
+
+यी तत्वहरू तपाईंको प्रश्नको उत्तर दिनमा सहयोग गर्छन्।`;
 }
 
 export async function POST(request: NextRequest) {
