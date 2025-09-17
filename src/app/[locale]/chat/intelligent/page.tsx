@@ -77,7 +77,7 @@ export default function IntelligentChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat/intelligent', {
+      const response = await fetch('/api/chat/enhanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,6 +86,7 @@ export default function IntelligentChatPage() {
           message: inputText,
           userId: user?.id,
           token: localStorage.getItem('token'),
+          birthData: user?.birthData,
         }),
       });
 
