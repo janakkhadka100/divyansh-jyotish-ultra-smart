@@ -195,7 +195,7 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
 
     // Try OpenAI API with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
     const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4',
@@ -204,7 +204,17 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
           role: 'system',
           content: `तपाईं दिव्यांश ज्योतिषका विशेषज्ञ हुनुहुन्छ। तपाईंले वैदिक ज्योतिषका सिद्धान्तहरू प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको उत्तर दिनुपर्छ। नेपाली भाषामा उत्तर दिनुहोस्।
 
-**महत्वपूर्ण:** तपाईंले दिइएको ज्योतिषीय डाटा प्रयोग गरेर मात्र उत्तर दिनुहोस्। सबै उत्तरहरूमा specific astrological values mention गर्नुहोस्।`,
+**महत्वपूर्ण:** 
+1. तपाईंले दिइएको ज्योतिषीय डाटा प्रयोग गरेर मात्र उत्तर दिनुहोस्
+2. सबै उत्तरहरूमा specific astrological values mention गर्नुहोस्
+3. Generic answers दिनुहोस् - हर प्रश्नको लागि specific analysis गर्नुहोस्
+4. उदाहरण: "तपाईंको लग्न मेष राशिमा छ" वा "तपाईंको वर्तमान दशा चन्द्र महादशा हो"
+
+**उत्तर दिने तरिका:**
+- प्रश्नको प्रकार अनुसार सम्बन्धित ग्रहहरू र भावहरू हेर्नुहोस्
+- वर्तमान दशा र अन्तर्दशाको प्रभाव बताउनुहोस्
+- योगहरूको प्रभाव समावेश गर्नुहोस्
+- नेपाली भाषामा सरल र स्पष्ट उत्तर दिनुहोस्`,
         },
         {
           role: 'user',
@@ -258,11 +268,19 @@ function generateFallbackResponse(message: string, astrologicalData: any): strin
   const lowerMessage = message.toLowerCase();
   
   if (lowerMessage.includes('दशा') || lowerMessage.includes('dasha')) {
-    return `तपाईंको वर्तमान दशा ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'} हो र त्यसको अन्तर्दशा ${astrologicalData.dasha?.antardasha || 'मंगल अन्तर्दशा'} हो। यो दशा तपाईंको जीवनमा विशेष प्रभाव पार्छ।`;
+    return `तपाईंको वर्तमान दशा ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'} हो र त्यसको अन्तर्दशा ${astrologicalData.dasha?.antardasha || 'मंगल अन्तर्दशा'} हो। 
+
+चन्द्र महादशा 10 वर्ष सम्म चल्ने गर्दछ र यो तपाईंको मनस्थिति, भावनात्मक जीवन, घरेलु सम्बन्ध, र आत्मसम्मानमा प्रभाव पार्छ। मंगल अन्तर्दशा 1.2 वर्ष सम्म चल्ने गर्दछ र यो तपाईंलाई साहस, स्वतन्त्रता, र प्रतिस्पर्धा क्षेत्रमा प्रेरित गर्न सक्छ।
+
+यो दशा अवधिमा तपाईंले आफ्नो भावनात्मक स्थिरता बनाउनुहोस् र नयाँ परियोजनाहरू शुरू गर्नुहोस्।`;
   }
   
   if (lowerMessage.includes('करियर') || lowerMessage.includes('career') || lowerMessage.includes('काम')) {
-    return `तपाईंको लग्न ${astrologicalData.kundli?.ascendant?.sign || 'मेष'} राशिमा छ र चन्द्र राशि ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} मा छ। यसका आधारमा तपाईंको करियरमा सफलता पाउनुहुनेछ।`;
+    return `तपाईंको लग्न ${astrologicalData.kundli?.ascendant?.sign || 'मेष'} राशिमा छ र चन्द्र राशि ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} मा छ।
+
+मेष लग्नले तपाईंलाई नेतृत्व गुण, साहस, र नयाँ काम शुरू गर्ने क्षमता दिन्छ। कर्क चन्द्र राशिले तपाईंलाई भावनात्मक बुद्धिमत्ता, सेवा भावना, र घरेलु व्यवसायमा सफलता दिन्छ।
+
+तपाईंको करियरमा नेतृत्व पद, सुरक्षा क्षेत्र, र घरेलु व्यवसाय उपयुक्त हुनेछन्। वर्तमान दशा ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'} मा नयाँ अवसरहरू आउन सक्छन्।`;
   }
   
   if (lowerMessage.includes('कुण्डली') || lowerMessage.includes('kundli') || lowerMessage.includes('जन्मकुण्डली')) {
@@ -273,6 +291,14 @@ function generateFallbackResponse(message: string, astrologicalData: any): strin
 - वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'}
 
 यी सबै तत्वहरू तपाईंको जीवनमा महत्वपूर्ण भूमिका खेल्छन्।`;
+  }
+  
+  if (lowerMessage.includes('राशि') || lowerMessage.includes('rashi') || lowerMessage.includes('sign')) {
+    return `तपाईंको चन्द्र राशि ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} हो।
+
+कर्क राशि तपाईंको मनस्थिति, भावना र आत्मियता प्रभावित गर्दछ। यसले तपाईंको स्वभाव, प्रवृत्ति र भावनात्मक पक्षहरूमा प्रभाव पार्दछ।
+
+कर्क राशिका व्यक्तिहरू भावनात्मक, घरेलु प्रेमी, र मातृत्व भावना बलियो हुन्छन्। तपाईंले आफ्नो भावनाहरू प्रकट गर्नुहोस् र घरेलु वातावरणमा सुख पाउनुहोस्।`;
   }
   
   if (lowerMessage.includes('प्रेम') || lowerMessage.includes('love') || lowerMessage.includes('विवाह')) {
