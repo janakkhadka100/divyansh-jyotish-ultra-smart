@@ -177,20 +177,38 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
 तपाईंले यो प्रश्नको उत्तर दिनुहोस्।`;
 
   try {
+    // Create a more direct prompt with specific data
+    let directPrompt = message;
+    
+    if (astrologicalData) {
+      directPrompt = `तपाईंको ज्योतिषीय डाटा:
+- लग्न: ${astrologicalData.kundli?.ascendant?.sign || 'अज्ञात'}
+- चन्द्र राशि: ${astrologicalData.kundli?.moonSign?.sign || 'अज्ञात'}
+- सूर्य राशि: ${astrologicalData.kundli?.sunSign?.sign || 'अज्ञात'}
+- वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'अज्ञात'}
+- अन्तर्दशा: ${astrologicalData.dasha?.antardasha || 'अज्ञात'}
+
+प्रश्न: ${message}
+
+कृपया उपर दिइएको ज्योतिषीय डाटा प्रयोग गरेर specific उत्तर दिनुहोस्।`;
+    }
+
     const response = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4',
       messages: [
         {
           role: 'system',
-          content: systemPrompt,
+          content: `तपाईं दिव्यांश ज्योतिषका विशेषज्ञ हुनुहुन्छ। तपाईंले वैदिक ज्योतिषका सिद्धान्तहरू प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको उत्तर दिनुपर्छ। नेपाली भाषामा उत्तर दिनुहोस्।
+
+**महत्वपूर्ण:** तपाईंले दिइएको ज्योतिषीय डाटा प्रयोग गरेर मात्र उत्तर दिनुहोस्। सबै उत्तरहरूमा specific astrological values mention गर्नुहोस्।`,
         },
         {
           role: 'user',
-          content: message,
+          content: directPrompt,
         },
       ],
       max_tokens: 1000,
-      temperature: 0.7,
+      temperature: 0.3,
       presence_penalty: 0.1,
       frequency_penalty: 0.1,
     });
