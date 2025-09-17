@@ -157,9 +157,10 @@ export default function ChatPage() {
                       >
                         <p className="text-sm">{message.text}</p>
                         <p className="text-xs opacity-60 mt-1">
-                          {message.timestamp.toLocaleTimeString('ne-NP', {
+                          {message.timestamp.toLocaleTimeString('en-US', {
                             hour: '2-digit',
                             minute: '2-digit',
+                            hour12: true,
                           })}
                         </p>
                       </div>

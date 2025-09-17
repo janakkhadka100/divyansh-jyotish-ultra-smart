@@ -226,9 +226,10 @@ export default function IntelligentChatPage() {
                           {message.type === 'user' ? message.message : message.response}
                         </p>
                         <p className="text-xs opacity-60 mt-1">
-                          {new Date(message.timestamp).toLocaleTimeString('ne-NP', {
+                          {new Date(message.timestamp).toLocaleTimeString('en-US', {
                             hour: '2-digit',
                             minute: '2-digit',
+                            hour12: true,
                           })}
                         </p>
                       </div>
