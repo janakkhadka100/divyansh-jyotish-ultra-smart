@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, User } from 'lucide-react';
+import AstrologicalDataCards from '@/components/chat/AstrologicalDataCards';
 import Link from 'next/link';
 
 interface Message {

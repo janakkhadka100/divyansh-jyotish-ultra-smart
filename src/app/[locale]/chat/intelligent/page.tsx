@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, User, Loader2, LogOut, Home } from 'lucide-react';
 import Link from 'next/link';
+import AstrologicalDataCards from '@/components/chat/AstrologicalDataCards';
 
 interface Message {
   id: string;
@@ -27,18 +28,63 @@ interface User {
   };
 }
 
+interface AstrologicalData {
+  kundli?: any;
+  dasha?: any;
+  panchang?: any;
+  source?: string;
+}
+
 export default function IntelligentChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [astrologicalData, setAstrologicalData] = useState<AstrologicalData | null>(null);
+  const [showDataCards, setShowDataCards] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch astrological data
+  const fetchAstrologicalData = async (birthData: any) => {
+    try {
+      const response = await fetch('/api/compute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'compute',
+          birthData: {
+            name: birthData.name || 'Demo User',
+            date: birthData.birthDate || '1990-01-01',
+            time: birthData.birthTime || '12:00',
+            location: birthData.birthPlace || 'Kathmandu, Nepal',
+            ayanamsa: birthData.ayanamsa || 1
+          }
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setAstrologicalData(data.data);
+        setShowDataCards(true);
+      }
+    } catch (error) {
+      console.error('Error fetching astrological data:', error);
+    }
+  };
 
   useEffect(() => {
     // Get user data from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      
+      // Fetch astrological data for the user
+      if (parsedUser.birthData) {
+        fetchAstrologicalData(parsedUser.birthData);
+      }
     }
 
     // Add welcome message
@@ -194,6 +240,32 @@ export default function IntelligentChatPage() {
               )}
             </CardHeader>
             <CardContent className="p-0">
+              {/* Astrological Data Cards */}
+              {showDataCards && astrologicalData && (
+                <div className="p-6 border-b border-slate-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-yellow-400">तपाईंको ज्योतिषीय डाटा</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDataCards(!showDataCards)}
+                      className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
+                    >
+                      {showDataCards ? 'छुपाउनुहोस्' : 'हेर्नुहोस्'}
+                    </Button>
+                  </div>
+                  <AstrologicalDataCards 
+                    data={astrologicalData} 
+                    birthData={user?.birthData ? {
+                      name: user.name,
+                      date: user.birthData.birthDate,
+                      time: user.birthData.birthTime,
+                      location: user.birthData.birthPlace
+                    } : undefined}
+                  />
+                </div>
+              )}
+
               {/* Messages */}
               <div className="h-96 overflow-y-auto p-6 space-y-4">
                 {messages.map((message) => (
