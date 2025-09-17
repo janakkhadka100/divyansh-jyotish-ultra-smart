@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,13 @@ interface Message {
   timestamp: Date;
 }
 
+interface AstrologicalData {
+  kundli?: any;
+  dasha?: any;
+  panchang?: any;
+  source?: string;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -26,6 +33,39 @@ export default function ChatPage() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [astrologicalData, setAstrologicalData] = useState<AstrologicalData | null>(null);
+  const [showDataCards, setShowDataCards] = useState(false);
+
+  // Fetch astrological data on component mount
+  useEffect(() => {
+    const fetchAstrologicalData = async () => {
+      try {
+        const response = await fetch('/api/compute', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: 'Demo User',
+            date: '1990-01-01',
+            time: '12:00',
+            location: 'Kathmandu, Nepal',
+            ayanamsa: 1
+          }),
+        });
+
+        const data = await response.json();
+        if (data.success && data.data) {
+          setAstrologicalData(data.data);
+          setShowDataCards(true);
+        }
+      } catch (error) {
+        console.error('Error fetching astrological data:', error);
+      }
+    };
+
+    fetchAstrologicalData();
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
@@ -128,6 +168,32 @@ export default function ChatPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+              {/* Astrological Data Cards */}
+              {showDataCards && astrologicalData && (
+                <div className="p-6 border-b border-slate-700">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-yellow-400">तपाईंको ज्योतिषीय डाटा</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDataCards(!showDataCards)}
+                      className="text-blue-400 border-blue-400 hover:bg-blue-400 hover:text-white"
+                    >
+                      {showDataCards ? 'छुपाउनुहोस्' : 'हेर्नुहोस्'}
+                    </Button>
+                  </div>
+                  <AstrologicalDataCards 
+                    data={astrologicalData} 
+                    birthData={{
+                      name: 'Demo User',
+                      date: '1990-01-01',
+                      time: '12:00',
+                      location: 'Kathmandu, Nepal'
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Messages */}
               <div className="h-96 overflow-y-auto p-6 space-y-4">
                 {messages.map((message) => (
