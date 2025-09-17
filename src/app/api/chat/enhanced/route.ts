@@ -312,11 +312,20 @@ function generateFallbackResponse(message: string, astrologicalData: any): strin
   }
   
   return `तपाईंको ज्योतिषीय डाटा अनुसार:
-- लग्न: ${astrologicalData.kundli?.ascendant?.sign || 'मेष'}
-- चन्द्र राशि: ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'}
-- वर्तमान दशा: ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'}
 
-यी तत्वहरू तपाईंको प्रश्नको उत्तर दिनमा सहयोग गर्छन्।`;
+**लग्न (Ascendant):** ${astrologicalData.kundli?.ascendant?.sign || 'मेष'} राशि
+- यो तपाईंको व्यक्तित्व र स्वभावलाई प्रभावित गर्छ
+- मेष लग्नले तपाईंलाई नेतृत्व गुण, साहस र नयाँ काम शुरू गर्ने क्षमता दिन्छ
+
+**चन्द्र राशि (Moon Sign):** ${astrologicalData.kundli?.moonSign?.sign || 'कर्क'} राशि  
+- यो तपाईंको मनस्थिति, भावना र आत्मियता प्रभावित गर्छ
+- कर्क राशिले तपाईंलाई भावनात्मक बुद्धिमत्ता र घरेलु प्रेम दिन्छ
+
+**वर्तमान दशा:** ${astrologicalData.dasha?.currentDasha || 'चन्द्र महादशा'}
+- यो तपाईंको वर्तमान जीवन अवस्थालाई प्रभावित गर्छ
+- चन्द्र महादशा मनस्थिति, भावनात्मक जीवन र घरेलु सम्बन्धहरूमा प्रभाव पार्छ
+
+यी सबै तत्वहरू मिलेर तपाईंको व्यक्तित्व र जीवन यात्रालाई आकार दिन्छन्।`;
 }
 
 export async function POST(request: NextRequest) {
