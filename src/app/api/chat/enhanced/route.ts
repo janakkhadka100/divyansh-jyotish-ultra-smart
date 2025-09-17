@@ -81,7 +81,9 @@ async function callChatGPTWithAstrology(message: string, birthData?: any, astrol
   const contextualResponse = getContextualResponse(message, questionType, astrologicalData);
 
   // Build comprehensive system prompt
-  let systemPrompt = `तपाईं दिव्यांश ज्योतिषका विशेषज्ञ हुनुहुन्छ। तपाईंले वैदिक ज्योतिषका सिद्धान्तहरू प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको उत्तर दिनुपर्छ। नेपाली भाषामा उत्तर दिनुहोस्।`;
+  let systemPrompt = `तपाईं दिव्यांश ज्योतिषका विशेषज्ञ हुनुहुन्छ। तपाईंले वैदिक ज्योतिषका सिद्धान्तहरू प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको उत्तर दिनुपर्छ। नेपाली भाषामा उत्तर दिनुहोस्।
+
+**महत्वपूर्ण:** तपाईंले निम्न ज्योतिषीय डाटा प्रयोग गरेर मात्र उत्तर दिनुपर्छ। यदि डाटा उपलब्ध छ भने, त्यसको आधारमा विस्तृत विश्लेषण गर्नुहोस्।`;
 
   if (astrologicalData) {
     systemPrompt += `
@@ -120,7 +122,9 @@ ${astrologicalData.kundli?.yogas?.map((yoga: any) =>
 - योग: ${astrologicalData.panchang?.yoga || 'अज्ञात'}
 - करण: ${astrologicalData.panchang?.karana || 'अज्ञात'}
 
-तपाईंले यो विस्तृत ज्योतिषीय डाटा प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको सटीक उत्तर दिनुपर्छ। केवल उपलब्ध डाटाको आधारमा मात्र जवाफ दिनुहोस्, आफैँ बनावटी कुरा नगर्नुहोस्।`;
+तपाईंले यो विस्तृत ज्योतिषीय डाटा प्रयोग गरेर प्रयोगकर्ताको प्रश्नहरूको सटीक उत्तर दिनुपर्छ। केवल उपलब्ध डाटाको आधारमा मात्र जवाफ दिनुहोस्, आफैँ बनावटी कुरा नगर्नुहोस्।
+
+**उदाहरण:** यदि प्रश्न करियरको बारेमा छ भने, लग्न, दशम भाव, गुरु, र सूर्यको स्थिति हेरेर उत्तर दिनुहोस्। यदि प्रेमको बारेमा छ भने, सप्तम भाव, शुक्र, र चन्द्रको स्थिति हेरेर जवाफ दिनुहोस्।`;
   } else if (birthData) {
     systemPrompt += `
 
@@ -202,21 +206,35 @@ export async function POST(request: NextRequest) {
     console.log(`Enhanced chat request: ${message}`);
 
     let astrologicalData = null;
+    let actualBirthData = birthData;
 
-    // If birth data is provided, get astrological data
-    if (birthData) {
-      try {
-        console.log('Fetching astrological data...');
-        astrologicalData = await prokeralaService.getAstrologicalData(birthData);
-        console.log('Astrological data fetched successfully');
-      } catch (error) {
-        console.error('Error fetching astrological data:', error);
-        // Continue without astrological data
-      }
+    // If no birth data provided, use default demo data
+    if (!actualBirthData) {
+      actualBirthData = {
+        name: 'Demo User',
+        date: '1990-01-01',
+        time: '12:00',
+        location: 'Kathmandu, Nepal',
+        latitude: 27.7172,
+        longitude: 85.3240,
+        timezone: 'Asia/Kathmandu',
+        ayanamsa: 1
+      };
+      console.log('Using default demo birth data for astrological analysis');
+    }
+
+    // Always get astrological data for better responses
+    try {
+      console.log('Fetching astrological data...');
+      astrologicalData = await prokeralaService.getAstrologicalData(actualBirthData);
+      console.log('Astrological data fetched successfully:', !!astrologicalData);
+    } catch (error) {
+      console.error('Error fetching astrological data:', error);
+      // Continue without astrological data
     }
 
     // Call ChatGPT with astrological data
-    const aiResponse = await callChatGPTWithAstrology(message, birthData, astrologicalData);
+    const aiResponse = await callChatGPTWithAstrology(message, actualBirthData, astrologicalData);
 
     // Store chat message in database
     let chatMessage;
