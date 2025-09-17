@@ -40,17 +40,58 @@ export default function ChatPage() {
     setInputText('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      const response = await fetch('/api/chat/enhanced', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: inputText,
+          birthData: {
+            name: 'Demo User',
+            date: '1990-01-01',
+            time: '12:00',
+            location: 'Kathmandu, Nepal',
+            latitude: 27.7172,
+            longitude: 85.3240,
+            timezone: 'Asia/Kathmandu',
+            ayanamsa: 1
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: data.data.response,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'माफ गर्नुहोस्, त्रुटि भयो। कृपया फेरि प्रयास गर्नुहोस्।',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'यो एक राम्रो प्रश्न हो। ज्योतिष अनुसार, तपाईंको जन्मकुण्डलीमा ग्रहहरूको स्थिति हेरेर म तपाईंलाई विस्तृत जवाफ दिन सक्छु। कृपया आफ्नो जन्म विवरण दिनुहोस्।',
+        text: 'माफ गर्नुहोस्, त्रुटि भयो। कृपया फेरि प्रयास गर्नुहोस्।',
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
