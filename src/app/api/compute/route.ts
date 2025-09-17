@@ -26,7 +26,10 @@ type ComputeRequest = z.infer<typeof ComputeRequestSchema>;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, date, time, location, lang, ayanamsa } = ComputeRequestSchema.parse(body);
+    
+    // Handle both direct birthData and nested birthData
+    const requestData = body.birthData || body;
+    const { name, date, time, location, lang, ayanamsa } = ComputeRequestSchema.parse(requestData);
 
     console.log(`Computing horoscope for ${name} born on ${date} at ${time} in ${location}`);
 
