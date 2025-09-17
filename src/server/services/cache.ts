@@ -38,6 +38,12 @@ class CacheService {
 
   private async getFromDatabase(key: string): Promise<any | null> {
     try {
+      // Check if prisma is available and has cacheEntry model
+      if (!prisma || !prisma.cacheEntry) {
+        console.log('Database cache not available, using memory cache only');
+        return null;
+      }
+
       const cacheEntry = await prisma.cacheEntry.findUnique({
         where: { key },
       });
@@ -65,6 +71,12 @@ class CacheService {
 
   private async setInDatabase(key: string, data: any, ttl: number): Promise<void> {
     try {
+      // Check if prisma is available and has cacheEntry model
+      if (!prisma || !prisma.cacheEntry) {
+        console.log('Database cache not available, using memory cache only');
+        return;
+      }
+
       await prisma.cacheEntry.upsert({
         where: { key },
         update: {
@@ -87,6 +99,12 @@ class CacheService {
 
   private async deleteFromDatabase(key: string): Promise<void> {
     try {
+      // Check if prisma is available and has cacheEntry model
+      if (!prisma || !prisma.cacheEntry) {
+        console.log('Database cache not available, using memory cache only');
+        return;
+      }
+
       await prisma.cacheEntry.delete({
         where: { key },
       });

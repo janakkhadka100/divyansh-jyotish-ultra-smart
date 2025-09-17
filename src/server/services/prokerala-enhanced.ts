@@ -14,13 +14,14 @@ export class ProkeralaEnhancedService {
 
   // Birth data validation schema
   static BirthDataSchema = z.object({
-    name: z.string().min(1).max(100),
+    name: z.string().min(1).max(100).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     time: z.string().regex(/^\d{2}:\d{2}$/),
-    latitude: z.number().min(-90).max(90),
-    longitude: z.number().min(-180).max(180),
-    timezone: z.string(),
-    ayanamsa: z.number().min(1).max(3), // 1=Lahiri, 2=Raman, 3=Krishnamurti
+    location: z.string().optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    timezone: z.string().optional(),
+    ayanamsa: z.number().min(1).max(3).optional().default(1), // 1=Lahiri, 2=Raman, 3=Krishnamurti
   });
 
   // Geocoding service for location to coordinates
@@ -668,6 +669,14 @@ export class ProkeralaEnhancedService {
     try {
       // Validate birth data
       const validatedData = ProkeralaEnhancedService.BirthDataSchema.parse(birthData);
+
+      // If coordinates are missing, use default Kathmandu coordinates
+      if (!validatedData.latitude || !validatedData.longitude || !validatedData.timezone) {
+        const geocoded = await this.geocodeLocation(validatedData.location || 'Kathmandu, Nepal');
+        validatedData.latitude = validatedData.latitude || geocoded.latitude;
+        validatedData.longitude = validatedData.longitude || geocoded.longitude;
+        validatedData.timezone = validatedData.timezone || geocoded.timezone;
+      }
 
       // Check if API key is available for real calls
       if (!this.apiKey || this.apiKey === 'demo-key') {
